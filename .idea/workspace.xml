@@ -4,14 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="488a50e1-143a-4b96-8d48-3472dc72f6f4" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/NetworkEntropy.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/EI (explosive immunization).py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/collective influence (ci).py" afterDir="false" />
+    <list default="true" id="488a50e1-143a-4b96-8d48-3472dc72f6f4" name="Changes" comment="update network utils">
+      <change afterPath="$PROJECT_DIR$/jaccard_index.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/EI (explosive immunization).py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/collective influence (ci).py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/network_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/network_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/result_ci.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/result_ei.png" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -36,18 +37,24 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python.EI (explosive immunization).executor": "Run",
-    "Python.collective influence (ci).executor": "Run",
-    "Python.network utils.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master",
-    "settings.editor.selected.configurable": "preferences.pluginManager"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.All in one.executor&quot;: &quot;Run&quot;,
+    &quot;Python.EI (explosive immunization).executor&quot;: &quot;Run&quot;,
+    &quot;Python.IE informative Entophy.executor&quot;: &quot;Run&quot;,
+    &quot;Python.LDC link degree centrality.executor&quot;: &quot;Run&quot;,
+    &quot;Python.LKS Link K-Shell.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ME Mapping Entrophy.executor&quot;: &quot;Run&quot;,
+    &quot;Python.collective influence (ci).executor&quot;: &quot;Run&quot;,
+    &quot;Python.jaccard_index.executor&quot;: &quot;Run&quot;,
+    &quot;Python.network utils.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -63,6 +70,19 @@
       <option name="presentableId" value="Default" />
       <updated>1768809762366</updated>
     </task>
+    <task id="LOCAL-00001" summary="update network utils">
+      <option name="closed" value="true" />
+      <created>1768811387547</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1768811387547</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="update network utils" />
+    <option name="LAST_COMMIT_MESSAGE" value="update network utils" />
   </component>
 </project>
