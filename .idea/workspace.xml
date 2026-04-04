@@ -5,14 +5,33 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="488a50e1-143a-4b96-8d48-3472dc72f6f4" name="Changes" comment="update network utils">
-      <change afterPath="$PROJECT_DIR$/jaccard_index.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/EI (explosive immunization).py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/collective influence (ci).py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/network_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/network_utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/result_ci.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/result_ei.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CKS_Link_K_Shell.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/IE_informative_entropy.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/LDC_link_degree_centrality.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLBC_contrast.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ME_mapping_entropy.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/collective_influence.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/iterative_ci.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/iterative_cks.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/iterative_ie.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/iterative_jaccard.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/iterative_ldc.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/iterative_llbc_me.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/iterative_me.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/network_utils_iter.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/report.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/result_ci_iter.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/result_cks_iter.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/result_ie_iter.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/result_jaccard_iter.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/result_ldc_iter.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/result_llbc_contrast_iter.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/result_llbc_me_iter.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/iterative_analysis/result_me_iter.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jaccard_index.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/network_utils.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,7 +70,7 @@
     &quot;Python.network utils.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;iterative-method&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
   }
 }</component>

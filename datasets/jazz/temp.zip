@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>U-M Web Hosting</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="HandheldFriendly" content="true">
+    
+	<link rel="stylesheet" type="text/css" href="css/errorDocuments.css">
+    <style type="text/css">@font-face {font-family:Roboto Slab;font-style:normal;font-weight:400;src:url(/cf-fonts/s/roboto-slab/5.0.18/vietnamese/400/normal.woff2);unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;font-display:swap;}@font-face {font-family:Roboto Slab;font-style:normal;font-weight:400;src:url(/cf-fonts/s/roboto-slab/5.0.18/cyrillic-ext/400/normal.woff2);unicode-range:U+0460-052F,U+1C80-1C88,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;font-display:swap;}@font-face {font-family:Roboto Slab;font-style:normal;font-weight:400;src:url(/cf-fonts/s/roboto-slab/5.0.18/latin/400/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:Roboto Slab;font-style:normal;font-weight:400;src:url(/cf-fonts/s/roboto-slab/5.0.18/greek-ext/400/normal.woff2);unicode-range:U+1F00-1FFF;font-display:swap;}@font-face {font-family:Roboto Slab;font-style:normal;font-weight:400;src:url(/cf-fonts/s/roboto-slab/5.0.18/latin-ext/400/normal.woff2);unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:Roboto Slab;font-style:normal;font-weight:400;src:url(/cf-fonts/s/roboto-slab/5.0.18/greek/400/normal.woff2);unicode-range:U+0370-03FF;font-display:swap;}@font-face {font-family:Roboto Slab;font-style:normal;font-weight:400;src:url(/cf-fonts/s/roboto-slab/5.0.18/cyrillic/400/normal.woff2);unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;font-display:swap;}</style>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    
+    <link rel="shortcut icon" href="http://its.umich.edu/favicon.ico" type="image/x-icon">
+
+<style>
+.alert{padding:.75rem 1.25rem;margin-bottom:1rem;border:1px solid transparent;border-radius:.25rem}.alert-heading{color:inherit}.alert-link{font-weight:700}.alert-dismissible .close{position:relative;top:-.75rem;right:-1.25rem;padding:.75rem 1.25rem;color:inherit}.alert-success{background-color:#dff0d8;border-color:#d0e9c6;color:#3c763d}.alert-success hr{border-top-color:#c1e2b3}.alert-success .alert-link{color:#2b542c}.alert-info{background-color:#d9edf7;border-color:#bcdff1;color:#31708f}.alert-info hr{border-top-color:#a6d5ec}.alert-info .alert-link{color:#245269}.alert-warning{background-color:#fcf8e3;border-color:#faf2cc;color:#8a6d3b}.alert-warning hr{border-top-color:#f7ecb5}.alert-warning .alert-link{color:#66512c}.alert-danger{background-color:#f2dede;border-color:#ebcccc;color:#a94442}.alert-danger hr{border-top-color:#e4b9b9}.alert-danger .alert-link{color:#843534}.alert p {margin-bottom:0;padding:6px;}.alert a{text-decoration:underline;}.alert a:hover{text-decoration:none;}
+</style> 
+</head>
+
+<body>
+    <!--*CONTAINER*-->
+    <div id="container">
+        <!-- HEADER -->
+        <header id="navbar" class="navbar">
+            <div class="container">
+                <div class="navbar-header">
+                    <!-- Banner Logo -->
+                    <a class="banner-logo" href="http://www.itcs.umich.edu/web/">
+                        <img src="images/its-web-hosting-banner.png" alt="ITS Web Hosting" title="ITS Web Hosting Banner">
+                    </a>
+                </div>
+            </div>
+        </header>
+        <!-- END HEADER -->
+        
+        <!-- CONTENT -->
+        <div id="content">
+            <!-- Error -->
+            <section class="error">
+                <!-- Error Message -->
+                <section class="error-msg">
+                    <h1>404: Missing Page</h1>
+                    <p>You have requested a resource that is not available on the U-M Personal web server. It is difficult to guess why this is the case on a server with so many different, unrelated web pages, but the page, image, or resource you requested is not available at this time.</p>
+                </section>
+<!--
+		<section class="alert alert-danger">
+                <p><strong>Note:</strong> This website is temporarily unavailable as we work to update the underlying file system. Planned maintenance is expected to end Sunday, May 28. <a href="http://status.its.umich.edu/report.php?id=133260">Visit the status page for more information</a>.</p>
+                </section>
+-->                
+                <!-- Tips -->
+                <section class="tips">
+                    <h4>Here are some helpful tips:</h4>
+
+                    <ul>
+                        <li><b>Check the spelling</b> in the web address that appears in the address bar</li>
+                        <li>
+                            <form method="GET" action="http://umich.edu/search/">
+                                <label for="searchits" accesskey="I"><strong>Search:</strong></label>
+
+                                <input type="text" size="30" name="keywords" value="">
+                                <input type="submit" value="Search">
+                            </form>
+                        </li>
+                        <li>Use the helpful links below</li>
+                        <li>
+                            Go to <a href="http://its.umich.edu/">Home Page</a> or back to <a href="javascript:history.back()" class="back-link">Previous Page</a>
+                        </li>
+                    </ul>
+                </section>
+                
+                <!-- Information -->
+                <section class="info">
+                    <h4>U-M Gateway</h4>
+                    <p><a href="http://www.umich.edu/">The U-M Gateway</a> is an entry point to networked information created or maintained by units of the University.</p>
+                </section>
+
+                <!--Disclaimer -->
+                <section class="disclaimer">
+                    <p><b>Disclaimer:</b> The information and statements appearing on personal Web pages are solely those of the particular individuals who own the pages and do not reflect the view of, or sponsorship or endorsement by, The Regents of the University of Michigan (or The University of Michigan) and its employees and agents.</p>
+                </section>
+            </section>
+            <!-- End Error -->
+        </div>
+        <!-- END CONTENT -->
+        
+        <!-- FOOTER -->
+        <footer>
+            <!-- Footer Logo -->
+            <div class="footer-logo">
+                <a href="http://www.umich.edu/">
+                    <img src="images/um-logo-m144.png" alt="University of Michigan" title="U-M Logo">
+                </a>
+            </div>
+            
+            <!-- Help -->
+            <div class="help">
+                <h4 class><a href="http://its.umich.edu/help/">Need Help?</a></h4>
+                
+                <!-- Help Links -->
+                <div class="help-links">
+                    <ul>
+                        <li class="help-link-report">
+                            <i class="fa fa-laptop" aria-hidden="true"></i>
+                            <a href="http://its.umich.edu/help/request/">Report an Issue Online</a>
+                        </li><!--
+                     --><li class="help-link-chat">
+                            <i class="fa fa-comments" aria-hidden="true"></i>
+                            <a href="https://chatsupport.it.umich.edu/">Chat with a Representative</a>
+                        </li><!--
+
+                     --><li class="help-link-call">
+                            <i class="fa fa-phone" aria-hidden="true"></i>
+                            <a href="tel:734-764-4357">Call 734-764-HELP</a>
+                        </li><!--
+                     --><li class="help-link-email">
+                            <i class="fa fa-envelope" aria-hidden="true"></i>
+                            <a href="/cdn-cgi/l/email-protection#685c202d2438281d05010b00460d0c1d">Email <span class="__cf_email__" data-cfemail="714539343d2131041c1812195f141504">[email&#160;protected]</span></a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            
+        </footer>
+        <!-- END FOOTER -->
+    </div>
+    <!--*END CONTAINER*-->
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script></body>
+ 
+</html>
+
