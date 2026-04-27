@@ -75,6 +75,7 @@ def run_and_plot(graph, method_name, rank_func, filename, reverse=True):
     
     plt.figure(figsize=(10, 6))
     
+    results = {}
     for metric_col in metric_cols:
         print(f"  - Processing metric: {metric_col}")
         rgc = dismantler.get_static_curve(df_scores, metric_col, reverse=reverse)
@@ -87,6 +88,12 @@ def run_and_plot(graph, method_name, rank_func, filename, reverse=True):
             auc = np.trapezoid(rgc, x)
         else:
             auc = np.trapz(rgc, x)
+
+        results[metric_col] = {
+            "x": x.tolist(),
+            "y": rgc,
+            "auc": float(auc)
+        }
 
         # Plotting
         plt.plot(x, rgc, label=f"{metric_col} (AUC={auc:.3f})", linewidth=2.5)
@@ -102,6 +109,7 @@ def run_and_plot(graph, method_name, rank_func, filename, reverse=True):
     plt.close()
 
     print(f"Completed. Plot saved to {filename}")
+    return results
 
 if __name__ == "__main__":
     print("NOTICE: This is a shared utility module, not a standalone script.")
