@@ -1,10 +1,10 @@
 import networkx as nx
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src/utils')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src/utils')))
 from network_utils import run_and_plot, create_metric_df
 
-def rank_cks(G):
+def rank_lks(G):
     """
     Link K-Shell Index (LKS).
     Score = Core(u) * Core(v)
@@ -22,4 +22,4 @@ if __name__ == "__main__":
     G = nx.read_gml(dataset_path, label='id')
     G = nx.convert_node_labels_to_integers(G, label_attribute='old_label')
     out_name = "results/result_cks.png"
-    run_and_plot(G, "Link K-Shell (CKS)", rank_cks, out_name)
+    run_and_plot(G, "Link K-Shell (LKS)", rank_lks, out_name)

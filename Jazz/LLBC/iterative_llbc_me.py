@@ -1,11 +1,14 @@
 import networkx as nx
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src/utils')))
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src/utils')))
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 import networkx as nx
 import sys
 import os
+import sys
+sys.path.insert(0, "C:/Users/USER/PycharmProjects/NetworkEntropy")
+
 
 # Add both .. and ../static to the system path
 
@@ -19,4 +22,4 @@ if __name__ == "__main__":
     G = nx.read_edgelist(dataset_path, comments='%')
     G = nx.convert_node_labels_to_integers(G, label_attribute='old_label')
     out_name = "results/result_llbc_iter.png"
-    run_iterative_benchmark(G, "LLBC and LLBME", rank_llbc_me, out_name)
+    run_iterative_benchmark(G, "LLBCe and LLBMEe1", rank_llbc_me, out_name)

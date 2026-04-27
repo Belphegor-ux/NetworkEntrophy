@@ -1,7 +1,7 @@
 import networkx as nx
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src/utils')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src/utils')))
 from network_utils import run_and_plot, create_metric_df
 
 

@@ -1,63 +1,60 @@
 import networkx as nx
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src/utils')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src/utils')))
 from math import log
 import numpy as np
 from network_utils import run_and_plot, create_metric_df
 
 def rank_me_improved(G):
     """
-    Improved Link-Local Mapping Betweenness Entropy (LLBME).
-    Addresses the 'mesh subgraph issue' with Jaccard weighting and epsilon smoothing.
+    Link-Local Mapping Betweenness Entropy (LLBMEe1) per Eq. 11 of
+    MDPI Entropy 26(4) 315.
+
+    LLBCe(e=(u,v)) is computed via nx.edge_betweenness_centrality_subset
+    over the first-order central domain fc = {u,v} U N(u) U N(v) as both
+    sources and targets, then normalized by |fc| * (|fc| - 1) (Eq. 8).
+    Subgraph extraction is explicitly forbidden by the spec.
+
+    LLBMEe1(e1) = -sum_p p log p over LLBCe values of edges incident to
+    the endpoints of e1, where p = LLBCe(e_k) / sum(LLBCe in Gamma(e1)).
     """
-    # 1. Calculating LLBC with local subgraphs
-    llbc_scores = {}
-    for u, v in G.edges():
-        nodes = set(G.neighbors(u)).union(set(G.neighbors(v))).union({u, v})
-        subg = G.subgraph(nodes)
-        try:
-            ebc = nx.edge_betweenness_centrality(subg, normalized=False)
-            key = (u, v) if (u, v) in ebc else (v, u)
-            llbc_scores[(u, v)] = ebc.get(key, 0)
-        except:
-            llbc_scores[(u, v)] = 0
+    edges = [tuple(sorted(e)) for e in G.edges()]
+    node_to_neighbors = {n: set(G.neighbors(n)) for n in G.nodes()}
 
-    # 2. Calculate Jaccard similarity for topological weighting
-    jaccard_scores = {}
-    for u, v in G.edges():
-        u_neighbors = set(G.neighbors(u))
-        v_neighbors = set(G.neighbors(v))
-        intersection = len(u_neighbors.intersection(v_neighbors))
-        union = len(u_neighbors.union(v_neighbors))
-        jaccard_scores[(u, v)] = intersection / union if union > 0 else 0
+    # 1. LLBCe via edge_betweenness_centrality_subset over fc = {u,v} U N(u) U N(v)
+    llbc_e = {}
+    for u, v in edges:
+        fc = {u, v} | node_to_neighbors[u] | node_to_neighbors[v]
+        fc_nodes = list(fc)
+        ebc_subset = nx.edge_betweenness_centrality_subset(
+            G, sources=fc_nodes, targets=fc_nodes, normalized=False
+        )
+        raw = ebc_subset.get((u, v), ebc_subset.get((v, u), 0))
+        denom = len(fc_nodes) * (len(fc_nodes) - 1)
+        llbc_e[(u, v)] = raw / denom if denom > 0 else 0.0
 
-    # 3. Calculate Improved Mapping Entropy
-    me_scores = {}
-    epsilon = 1e-6 # Smoothing factor to prevent zero values in log
-    for u, v in G.edges():
-        e_val = llbc_scores.get((u, v), 0)
-        if e_val <= 0:
-            me_scores[(u, v)] = 0
-            continue
+    # 2. LLBMEe1: entropy over LLBCe of edges incident to endpoints of e1
+    llbme_e1 = {}
+    for u, v in edges:
+        gamma_e1_edges = set()
+        for e in list(G.edges(u)) + list(G.edges(v)):
+            gamma_e1_edges.add(tuple(sorted(e)))
 
-        neighbor_edges = list(G.edges(u)) + list(G.edges(v))
-        sum_log = 0
-        for nu, nv in neighbor_edges:
-            if (nu, nv) == (u, v) or (nu, nv) == (v, u):
-                continue
+        local_vals = [llbc_e.get(e, 0) for e in gamma_e1_edges]
+        sum_llbc = sum(local_vals)
 
-            n_key = (nu, nv) if (nu, nv) in llbc_scores else (nv, nu)
-            n_val = llbc_scores.get(n_key, 0)
+        if sum_llbc == 0:
+            llbme_e1[(u, v)] = 0.0
+        else:
+            entropy = 0.0
+            for val in local_vals:
+                if val > 0:
+                    p = val / sum_llbc
+                    entropy -= p * np.log(p)
+            llbme_e1[(u, v)] = entropy
 
-            # Apply epsilon smoothing for neighbors
-            sum_log += log(max(n_val, epsilon))
-
-        # Weight by (1 - Jaccard) to penalize mesh edges (high overlap)
-        # and favor bridge edges (low overlap)
-        me_scores[(u, v)] = -e_val * sum_log * (1 - jaccard_scores[(u, v)])
-
-    return create_metric_df(G, me_scores, "LLBMEe_improved")
+    return create_metric_df(G, llbme_e1, "LLBMEe1")
 
 if __name__ == "__main__":
 

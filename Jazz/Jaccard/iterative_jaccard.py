@@ -1,8 +1,8 @@
 import networkx as nx
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src/utils')))
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src/utils')))
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 import networkx as nx
 import sys
 import os

@@ -1,62 +1,47 @@
 import networkx as nx
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src/utils')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src/utils')))
 import numpy as np
 import pandas as pd
 from network_utils import run_and_plot
 
 def rank_llbc_me(G):
     """
-    Implements LLBCe (Equation 8) and LLBMEe1 (Equation 11) from MDPI Entropy 26(4), 315.
-    
-    LLBCe: Link-Local Betweenness Centrality using subset betweenness on the full graph.
-    LLBMEe1: Link-Local Betweenness Mapping Entropy.
+    Optimized implementation of LLBCe and LLBMEe1 using parallel processing.
     """
-    nodes = list(G.nodes())
-    edges = list(G.edges())
+    import collections
+    from concurrent.futures import ThreadPoolExecutor
     
-    llbc_e = {}
+    edges = [tuple(sorted(e)) for e in G.edges()]
+    node_to_neighbors = {n: set(G.neighbors(n)) for n in G.nodes()}
     
-    # 1. Calculate LLBCe for each edge
+    edge_to_fc = {}
     for u, v in edges:
-        # Canonical key
-        en = tuple(sorted((u, v)))
-        
-        # FC_G[e] = first-order central domain (nodes of e and their neighbors)
-        fc_nodes = set([u, v]).union(G.neighbors(u)).union(G.neighbors(v))
-        fc_nodes = list(fc_nodes)
-        
-        # Use subset betweenness on the FULL graph as instructed
-        # sources=fc_nodes, targets=fc_nodes
-        ebc_subset = nx.edge_betweenness_centrality_subset(
-            G, sources=fc_nodes, targets=fc_nodes, normalized=False
-        )
-        
-        # Get score for the current edge e
-        score = ebc_subset.get((u, v), ebc_subset.get((v, u), 0))
-        llbc_e[en] = score
+        fc = {u, v} | node_to_neighbors[u] | node_to_neighbors[v]
+        edge_to_fc[(u, v)] = list(fc)
 
-    # 2. Calculate LLBMEe1 for each edge
+    def get_score(e):
+        u, v = e
+        fc_nodes = edge_to_fc[e]
+        ebc_subset = nx.edge_betweenness_centrality_subset(G, sources=fc_nodes, targets=fc_nodes, normalized=False)
+        return e, ebc_subset.get((u, v), ebc_subset.get((v, u), 0))
+
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(get_score, edges))
+    
+    llbc_e = dict(results)
+
     llbme_e1 = {}
     for u, v in edges:
-        e1 = tuple(sorted((u, v)))
-        # Gamma(e1) = neighboring links (sharing a node with e1)
-        # Including e1 itself
-        neighbors_u = [(u, n) for n in G.neighbors(u)]
-        neighbors_v = [(v, n) for n in G.neighbors(v)]
+        e1 = (u, v)
+        neighbors_u = G.edges(u)
+        neighbors_v = G.edges(v)
         gamma_e1_edges = set()
-        for e in neighbors_u + neighbors_v:
-            # Canonical edge representation
-            en = tuple(sorted(e))
-            gamma_e1_edges.add(en)
+        for e in list(neighbors_u) + list(neighbors_v):
+            gamma_e1_edges.add(tuple(sorted(e)))
         
-        # Get LLBC values for these edges
-        local_llbc_vals = []
-        for e in gamma_e1_edges:
-            val = llbc_e.get(e, 0)
-            local_llbc_vals.append(val)
-            
+        local_llbc_vals = [llbc_e.get(e, 0) for e in gamma_e1_edges]
         sum_llbc = sum(local_llbc_vals)
         
         if sum_llbc == 0:
@@ -69,14 +54,13 @@ def rank_llbc_me(G):
                     entropy -= p * np.log(p)
             llbme_e1[e1] = entropy
 
-    # 3. Create DataFrame
     data = []
     for u, v in edges:
-        e_can = tuple(sorted((u, v)))
+        e_can = (u, v)
         data.append({
-            'i': u, 
-            'j': v, 
-            'LLBCe': llbc_e[e_can], 
+            'i': u,
+            'j': v,
+            'LLBCe': llbc_e[e_can],
             'LLBMEe1': llbme_e1[e_can]
         })
     
@@ -88,4 +72,4 @@ if __name__ == "__main__":
     G = nx.karate_club_graph()
     G = nx.convert_node_labels_to_integers(G, label_attribute='old_label')
     out_name = "results/result_llbc.png"
-    run_and_plot(G, "LLBC and LLBME", rank_llbc_me, out_name)
+    run_and_plot(G, "LLBCe and LLBMEe1", rank_llbc_me, out_name)
