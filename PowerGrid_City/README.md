@@ -33,5 +33,29 @@ All metrics were aggregated into a unified Pandas DataFrame:
 - **Visualization**: Dismantling curves for each metric (Relative Giant Component vs. Fraction of Edges Removed) were plotted in `results_city/`.
 - **AUC Scores**: AUC values were computed for each metric to rank their effectiveness in identifying critical links for maintaining global connectivity.
 
+## 4. Resilience / Critical-Component Analysis (`run_resilience_analysis.py`)
+
+A flow/spectral complement to the topological metrics above, for identifying the
+lines and substations most critical to keeping the grid connected — so they can be
+**prioritised for protection, redundancy, and N-1 / N-k contingency planning**.
+
+- **Edge metrics**: shortest-path betweenness (`EBC`), current-flow/electrical
+  betweenness (`CFEdge`), min-cut membership via max-flow (`MinCutCrit`), and
+  single-failure N-1 impact (`BridgeImpact`).
+- **Node metrics**: betweenness, current-flow betweenness, articulation-point and
+  minimum-node-cut flags.
+- **Global**: edge/node connectivity, Stoer–Wagner global min-cut, **2-core
+  backbone** min-cut, algebraic connectivity (Fiedler value) and Fiedler bisection.
+- Implemented in pure NumPy + NetworkX (`src/utils/resilience_utils.py`) — no scipy.
+- Outputs (new files only; `tokyo_grid_metrics.csv` is never touched):
+  `results_city/tokyo_resilience_metrics.csv`, `tokyo_node_resilience.csv`,
+  `tokyo_resilience_report.md`, `plot_resilience_all.png`. Line/substation names are
+  joined read-only from `datasets/japan_*.csv`.
+
+> Note: the raw global min-cut is 1 (an OSM pendant-stub artefact); the meaningful
+> bottleneck is the 2-core backbone cut and the bridge/N-1 rankings. Current-flow
+> metrics use unit conductances (topological electrical model), not a full AC
+> power-flow — treat rankings as structural indicators.
+
 ---
 *Prepared by Gemini CLI Hive Mind - April 2026*
