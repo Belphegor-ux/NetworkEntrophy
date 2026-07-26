@@ -171,6 +171,93 @@ def test_run_and_plot_integration_and_auc_gain():
         assert auc_v2 < res_cf["CFE"]["auc"]
 
 
+# --------------------------------------------------------------------------- #
+# v2_fast exactness: rep_fraction=1.0 makes the representative-pair            #
+# approximation exact, so v2_fast must equal exact v2 to 1e-9 — including      #
+# the community_weight=0 (CFEdge) and finite-gamma settings.                   #
+# --------------------------------------------------------------------------- #
+def test_v2_fast_exact_at_full_sampling():
+    for G in (nx.karate_club_graph(), nx.barbell_graph(5, 0)):
+        for cw in (None, 0.0, 2.0):
+            exact, _ = pcv2.kfc_v2_scores(G, community_weight=cw)
+            fast, info = pcv2.kfc_v2_fast_scores(
+                G, community_weight=cw, rep_fraction=1.0)
+            assert not info["fallback"]
+            assert set(fast) == set(exact)
+            for e in exact:
+                assert abs(fast[e] - exact[e]) < 1e-9, f"cw={cw} {e}"
+
+
+# --------------------------------------------------------------------------- #
+# v2_fast default sampling: high rank agreement with exact v2 on karate, and   #
+# the tier property still holds (inter > intra) since the tier is exact even   #
+# when cf is approximated.                                                     #
+# --------------------------------------------------------------------------- #
+def test_v2_fast_default_sampling_quality():
+    G = nx.karate_club_graph()
+    exact, _ = pcv2.kfc_v2_scores(G)
+    fast, info = pcv2.kfc_v2_fast_scores(G)
+    assert not info["fallback"] and info["n_reps"] >= 2
+    edges = sorted(exact)
+    a = np.argsort(np.argsort([exact[e] for e in edges]))
+    b = np.argsort(np.argsort([fast[e] for e in edges]))
+    rho = np.corrcoef(a, b)[0, 1]
+    assert rho > 0.7, f"Spearman {rho:.3f} too low"
+
+    H = ru.largest_connected_component(G)
+    parts = pcf.detect_communities(H, seed=42)
+    memb = {v: ci for ci, c in enumerate(parts) for v in c}
+    inter = {e for e in fast if memb[e[0]] != memb[e[1]]}
+    intra = set(fast) - inter
+    assert min(fast[e] for e in inter) > max(fast[e] for e in intra)
+
+
+# --------------------------------------------------------------------------- #
+# Min-cut tier: on barbell(5,0) the bridge is BOTH the only inter-community    #
+# edge and the (a,b)-min-cut, so it lands in the top tier; on a two-triangle   #
+# graph joined by two parallel edges, exactly those two edges form the         #
+# min-cut and outrank everything else.                                         #
+# --------------------------------------------------------------------------- #
+def test_v2_fast_mincut_tier():
+    G = nx.barbell_graph(5, 0)
+    scores, info = pcv2.kfc_v2_fast_scores(G, rep_fraction=1.0, mincut=True)
+    assert info["n_mincut_edges"] == 1
+    assert max(scores, key=scores.get) == (4, 5)
+
+    G2 = nx.Graph()
+    G2.add_edges_from([(0, 1), (1, 2), (0, 2),        # triangle A
+                       (3, 4), (4, 5), (3, 5),        # triangle B
+                       (0, 3), (2, 5)])               # 2-edge cut
+    scores2, info2 = pcv2.kfc_v2_fast_scores(G2, rep_fraction=1.0, mincut=True)
+    assert info2["n_mincut_edges"] == 2
+    top2 = sorted(scores2, key=scores2.get, reverse=True)[:2]
+    assert set(top2) == {(0, 3), (2, 5)}
+
+
+# --------------------------------------------------------------------------- #
+# v2_fast determinism + schema + dirty input (mirrors the exact-v2 checks).    #
+# --------------------------------------------------------------------------- #
+def test_v2_fast_determinism_schema_dirty():
+    G = nx.karate_club_graph()
+    d1 = pcv2.rank_kfc_v2_fast(G).sort_values(["i", "j"]).reset_index(drop=True)
+    d2 = pcv2.rank_kfc_v2_fast(G).sort_values(["i", "j"]).reset_index(drop=True)
+    assert list(d1.columns) == ["i", "j", "KFC_v2_fast"]
+    assert len(d1) == G.number_of_edges()
+    assert np.allclose(d1["KFC_v2_fast"].values, d2["KFC_v2_fast"].values,
+                       rtol=0, atol=0)
+
+    Gd = nx.Graph()
+    Gd.add_edges_from(nx.karate_club_graph().edges())
+    Gd.add_edges_from([(100, 101), (101, 102)])
+    Gd.add_edge(0, 0)
+    df = pcv2.rank_kfc_v2_fast(Gd)
+    assert len(df) == 78
+    assert Gd.number_of_edges() == 78 + 2 + 1          # input untouched
+
+    empty, info0 = pcv2.kfc_v2_fast_scores(nx.Graph())
+    assert empty == {} and info0["n_communities"] == 0
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failures = 0

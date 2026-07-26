@@ -249,7 +249,46 @@ validation table above — e.g. karate 0.4847 vs 0.4244 — due to
 dismantling-curve harness details; each table is internally consistent and the
 rankings agree.)
 
-### 3.3 Known limitations
+### 3.3 Cluster-accelerated v2 and the min-cut tier (`rank_kfc_v2_fast`)
+
+`rank_kfc_v2_fast(G, ..., rep_fraction=0.5, mincut=False)` combines the two
+ideas: the v2 community tier applied on top of the representative-pair cf
+approximation of §2 (one shared community-detection pass). `rep_fraction=1.0`
+recovers exact v2 to 1e-9 (unit-tested); `community_weight` semantics match
+exact v2.
+
+`mincut=True` adds a **third tier** answering "why not use max-flow/min-cut
+here too": for every pair of *adjacent* communities, the minimum edge cut
+between their centers is computed by max-flow (a handful of calls — versus
+`MinCutCrit`'s thousands of sampled pairs), and cut-member edges outrank all
+other inter-community edges (ordering: intra < inter < inter-min-cut).
+
+Measured on the six benchmark networks
+(`results_comparison/kfc_v2_fast_validation.csv`, same harness as the
+17-method benchmark):
+
+| variant | dolphins | football | jazz | karate | lesmis | tokyo | mean |
+|---|---|---|---|---|---|---|---|
+| KFC_v2 (exact) | **0.3374** | **0.3341** | 0.4104 | 0.4847 | 0.2852 | **0.1093** | 0.3268 |
+| KFC_v2 + mincut | 0.3414 | 0.3379 | 0.4114 | **0.4410** | **0.2803** | 0.1241 | **0.3227** |
+| KFC_v2_fast | 0.3730 | 0.3481 | **0.3966** | 0.4738 | 0.2848 | 0.1124 | 0.3315 |
+| KFC_v2_fast + mincut | 0.3767 | 0.3510 | 0.3980 | 0.4210 | 0.2823 | 0.1271 | 0.3260 |
+
+Honest read:
+
+- **v2_fast** costs a little effectiveness (mean 0.3315 vs 0.3268) and, as
+  with v1-fast, saves no time at these sizes — its niche remains N ≳ 10³,
+  where it now carries the champion scoring rule rather than v1's.
+- **The min-cut tier is a wash, not a win.** It helps clearly on karate
+  (−0.044) and slightly on lesmis, but *hurts* on Tokyo (+0.015), dolphins,
+  football, and jazz; the mean difference vs plain v2 is ~0.004. Mechanism:
+  the center-to-center min-cut promotes the *narrowest* inter-community
+  corridor, which is not always the highest-impact one — on Tokyo it elevates
+  thin peripheral cuts above the high-current 500 kV trunks that current flow
+  already ranks correctly. It stays available as an option (default **off**);
+  plain two-tier v2 remains the default.
+
+### 3.4 Known limitations
 
 1. **Weak community structure ⇒ margin shrinks toward CFEdge.** Football
    (conference structure, dense inter-links) is the smallest win (−3.6%). On
@@ -272,10 +311,9 @@ rankings agree.)
   recommended default of the KFC family; supersedes "CFEdge is champion"
   (`prototype_kfc_findings.md` addendum).
 - **Need physical current values → `community_weight=0`** (= exact CFEdge).
-- **N ≳ 10³ → `rank_kfc_fast`** — but note it currently approximates *v1*;
-  a cluster-accelerated **v2** (tiering the representative-pair approximation)
-  does not exist yet and is the natural next step before production use at
-  scale.
+- **N ≳ 10³ → `rank_kfc_v2_fast`** — the cluster-accelerated form of the
+  champion scoring rule (§3.3). `rank_kfc_fast` (v1-based) is kept for
+  comparison only.
 - **Very large sparse graphs → `LDC`** as an O(E) pre-screen.
 
 ## 5. Reproduction

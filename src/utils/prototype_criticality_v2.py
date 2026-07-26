@@ -67,16 +67,23 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from prototype_criticality_fast import detect_communities  # noqa: E402
+from prototype_criticality_fast import (  # noqa: E402
+    _grounded_inverse,
+    _weighted_pairwise_absdiff,
+    community_representatives,
+    detect_communities,
+)
 from resilience_utils import (  # noqa: E402
     _canon,
     _laplacian_pinv,
     largest_connected_component,
 )
 
-__all__ = ["kfc_v2_scores", "rank_kfc_v2"]
+__all__ = ["kfc_v2_scores", "rank_kfc_v2", "kfc_v2_fast_scores", "rank_kfc_v2_fast"]
 
 _DEFAULT_SEED = 42
+_DEFAULT_REP_FRACTION = 0.5
+_DEFAULT_MIN_CENTERS = 8
 
 
 def kfc_v2_scores(
@@ -135,6 +142,143 @@ def kfc_v2_scores(
         vals = cf1 * (1.0 + float(community_weight) * inter)
 
     return {e: float(vals[k]) for k, e in enumerate(edges)}, info
+
+
+def _community_centers(G: nx.Graph, parts: list[set]) -> list:
+    """Center of each community: max closeness of the community subgraph
+    (ties by sorted node label — deterministic). Same rule as
+    ``community_representatives``' first pick."""
+    centers = []
+    for comm in parts:
+        clo = nx.closeness_centrality(G.subgraph(comm))
+        centers.append(min(clo, key=lambda v: (-clo[v], str(v))))
+    return centers
+
+
+def _intercommunity_mincut_edges(
+    H: nx.Graph, parts: list[set], membership: dict
+) -> set[tuple]:
+    """
+    Min-cut membership restricted to ADJACENT community pairs.
+
+    For every pair of communities joined by at least one edge, compute the
+    minimum edge cut between their centers (max-flow) on the FULL graph and
+    collect the cut edges. These are the true bottlenecks of inter-community
+    exchange. Cost: one max-flow per adjacent community pair — typically a
+    handful of calls, versus MinCutCrit's thousands of sampled node pairs.
+    """
+    centers = _community_centers(H, parts)
+    adjacent: set[tuple[int, int]] = set()
+    for u, v in H.edges():
+        cu, cv = membership[u], membership[v]
+        if cu != cv:
+            adjacent.add((min(cu, cv), max(cu, cv)))
+
+    cut_edges: set[tuple] = set()
+    for ca, cb in sorted(adjacent):
+        a, b = centers[ca], centers[cb]
+        if a == b:
+            continue
+        for u, v in nx.minimum_edge_cut(H, a, b):
+            cut_edges.add(_canon(u, v))
+    return cut_edges
+
+
+def kfc_v2_fast_scores(
+    G: nx.Graph,
+    community_weight: float | None = None,
+    method: str = "louvain",
+    seed: int = _DEFAULT_SEED,
+    rep_fraction: float = _DEFAULT_REP_FRACTION,
+    min_centers: int = _DEFAULT_MIN_CENTERS,
+    mincut: bool = False,
+) -> tuple[dict[tuple, float], dict]:
+    """
+    Cluster-accelerated KFC_v2: the v2 community tier on top of the
+    representative-pair current-flow approximation of
+    ``prototype_criticality_fast`` (one shared community detection pass).
+
+    ``rep_fraction=1.0`` makes the approximation exact, so the result equals
+    ``kfc_v2_scores`` EXACTLY (unit-tested). ``community_weight`` semantics
+    match ``kfc_v2_scores`` (None = strict two-tier; 0 = approximate CFEdge).
+
+    ``mincut=True`` adds a THIRD tier: inter-community edges that lie in a
+    minimum edge cut between adjacent community centers (max-flow, see
+    ``_intercommunity_mincut_edges``) outrank all other inter-community
+    edges — ordering: intra < inter < inter-mincut, cf order within tiers.
+
+    Returns ``(scores, info)``; info records ``n_communities``, ``n_reps``,
+    ``frac_inter``, ``n_mincut_edges``, ``fallback``.
+    """
+    H = largest_connected_component(G)
+    n = H.number_of_nodes()
+    info = {"n_communities": 0, "n_reps": 0, "frac_inter": 0.0,
+            "n_mincut_edges": 0, "community_weight": community_weight,
+            "method": method, "fallback": False}
+    if n < 2 or H.number_of_edges() == 0:
+        return {}, info
+
+    parts = detect_communities(H, method=method, seed=seed)
+    reps = community_representatives(H, parts, rep_fraction, min_centers)
+    info["n_communities"] = len(parts)
+    info["n_reps"] = len(reps)
+    if len(reps) < 2:
+        scores, exact_info = kfc_v2_scores(
+            H, community_weight=community_weight, method=method, seed=seed)
+        info.update({"frac_inter": exact_info["frac_inter"], "fallback": True})
+        return scores, info
+
+    nodes = list(H.nodes())
+    idx = {u: k for k, u in enumerate(nodes)}
+    M = _grounded_inverse(H, nodes)
+    edges = [_canon(u, v) for u, v in H.edges()]
+    U = np.array([idx[u] for u, _ in edges])
+    V = np.array([idx[v] for _, v in edges])
+
+    r_idx = np.array([idx[v] for v, _ in reps])
+    w = np.array([wt for _, wt in reps])
+    D = M[np.ix_(U, r_idx)] - M[np.ix_(V, r_idx)]
+    cf = _weighted_pairwise_absdiff(D, w)
+
+    if community_weight is not None and float(community_weight) == 0.0:
+        return {e: float(cf[k]) for k, e in enumerate(edges)}, info
+
+    membership = {v: ci for ci, comm in enumerate(parts) for v in comm}
+    inter = np.array([1.0 if membership[u] != membership[v] else 0.0
+                      for u, v in edges])
+    info["frac_inter"] = float(inter.mean())
+
+    tier = inter.copy()
+    if mincut:
+        cut_edges = _intercommunity_mincut_edges(H, parts, membership)
+        cutmark = np.array([1.0 if e in cut_edges else 0.0 for e in edges])
+        info["n_mincut_edges"] = int(cutmark.sum())
+        tier = inter + cutmark * inter    # cut tier only within inter edges
+
+    if community_weight is None:
+        vals = cf + float(cf.max()) * tier
+    else:
+        vals = cf * (1.0 + float(community_weight) * tier)
+
+    return {e: float(vals[k]) for k, e in enumerate(edges)}, info
+
+
+def rank_kfc_v2_fast(
+    G: nx.Graph,
+    community_weight: float | None = None,
+    method: str = "louvain",
+    seed: int = _DEFAULT_SEED,
+    rep_fraction: float = _DEFAULT_REP_FRACTION,
+    min_centers: int = _DEFAULT_MIN_CENTERS,
+    mincut: bool = False,
+) -> pd.DataFrame:
+    """DataFrame form: columns ``i, j, KFC_v2_fast`` (dismantle reverse=True)."""
+    scores, _ = kfc_v2_fast_scores(
+        G, community_weight=community_weight, method=method, seed=seed,
+        rep_fraction=rep_fraction, min_centers=min_centers, mincut=mincut)
+    rows = [{"i": u, "j": v, "KFC_v2_fast": val}
+            for (u, v), val in scores.items()]
+    return pd.DataFrame(rows)
 
 
 def rank_kfc_v2(
