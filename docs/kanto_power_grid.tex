@@ -21,9 +21,11 @@
 
 \sisetup{group-separator={,}}
 
-\title{Identifying Critical Transmission Links in the Kanto
-500/275~kV Power Grid via Topological and
-Entropy-Based Edge Ranking}
+% Absorb minor line-end overflows from long \texttt{} tokens.
+\emergencystretch=3em
+
+\title{Ranking Critical Links in the Kanto
+500/275~kV Power Grid}
 
 \author{NetworkEntropy Research Project\\
 \small{Code repository: \texttt{NetworkEntropy} (branch \texttt{iterative-method})}}
@@ -35,112 +37,115 @@ Entropy-Based Edge Ranking}
 \maketitle
 
 \begin{abstract}
-We study the Kanto region high-voltage power transmission network --- the
-\SI{500}{\kilo\volt} and \SI{275}{\kilo\volt} backbone operated by TEPCO and
-J-Power across Eastern Japan --- as a complex network and rank its edges by
-structural criticality. Using the largest connected component
-(\num{156} nodes, \num{190} edges) extracted from OpenStreetMap via the
-ComplexNetTSP power-grids dataset, we apply nine edge-ranking metrics
-covering local degree (LDC), neighbourhood overlap (Jaccard), $k$-shell
-(LKS), Collective Influence (four variants), Link-Local Betweenness
-Centrality (LLBCe) and Link-Local Betweenness Mapping Entropy (LLBMEe1).
-Each metric is evaluated by progressive edge removal and the area under the
-relative-giant-component (RGC) curve. In the static regime, LLBCe attains
-the lowest AUC ($0.174$), outperforming the next-best metric (Jaccard,
-$0.220$) by \SI{21}{\percent}; in the iterative regime, where ranks are
-recomputed after each removal, CI variants improve substantially while
-LLBCe retains its lead by a smaller margin. We further inventory the
-network by named substation, identify the seven trunk hubs that anchor the
-\SI{500}{\kilo\volt} grid, and discuss the line of bridges connecting the
-TEPCO service area to peripheral regions.
+We treat the Kanto high-voltage power grid as a network and rank its
+transmission lines by how critical each one is to keeping the grid
+connected. The network is the \SI{500}{\kilo\volt} and
+\SI{275}{\kilo\volt} backbone run by TEPCO and J-Power across eastern
+Japan. From the ComplexNetTSP power-grids dataset, which was extracted
+from OpenStreetMap, we take the largest connected component
+(\num{156} nodes, \num{190} edges) and rank its edges with nine metrics:
+local degree (LDC), neighbourhood overlap (Jaccard), $k$-shell (LKS),
+Collective Influence (four variants), Link-Local Betweenness Centrality
+(LLBCe), and its mapping-entropy extension (LLBMEe1). We score each
+metric by removing edges in rank order and measuring the area under the
+relative-giant-component (RGC) curve; a lower area means the metric
+finds critical edges sooner. In the static case, LLBCe gives the lowest
+area ($0.174$), about \SI{21}{\percent} better than the next metric
+(Jaccard, $0.220$). When ranks are recomputed after each removal (the
+iterative case), the CI variants improve sharply, but LLBCe keeps the
+lead by a smaller margin. We also identify the seven trunk hubs of the
+\SI{500}{\kilo\volt} grid and describe the chain of bridges that links
+the TEPCO service area to outlying regions.
 \end{abstract}
 
 \section{Introduction}
 \label{sec:intro}
 
-Power transmission grids are canonical examples of critical infrastructure
-whose failure modes are dictated as much by network topology as by the
-electromechanical properties of any single component. The 2003 North
-American blackout, the 2011 T\=ohoku earthquake aftermath, and the 2018
-Taiwan brownout each highlighted that a small number of structurally
-exposed transmission corridors can disconnect tens of millions of customers
-when removed in sequence~\cite{albert2004structural,buldyrev2010catastrophic}.
+Power grids are a standard example of critical infrastructure whose
+failure modes depend as much on network topology as on the
+electromechanical properties of any single component. Past cascading
+failures, such as the 2003 North American blackout and the 2018 Taiwan
+brownout, showed that removing a small number of structurally exposed
+transmission corridors in sequence can disconnect tens of millions of
+customers~\cite{albert2004structural,buldyrev2010catastrophic}.
 
-In Japan, the Kanto region --- centred on Tokyo and bounded approximately
-by longitudes $138.3^{\circ}$E to $141.0^{\circ}$E and latitudes
-$34.8^{\circ}$N to $37.1^{\circ}$N --- contains the highest electricity
-demand density in the country, served entirely at \SI{50}{\hertz} by Tokyo
-Electric Power Company (TEPCO) and Electric Power Development
-(``J-Power'')~\cite{tepco2024network}. Frequency conversion to the western
-\SI{60}{\hertz} grid is bottlenecked through three back-to-back DC
-substations with limited capacity, so internal Kanto resilience effectively
-determines black-start capability for the eastern half of the country.
+In Japan, the Kanto region around Tokyo (roughly longitude
+$138.3^{\circ}$E to $141.0^{\circ}$E and latitude $34.8^{\circ}$N to
+$37.1^{\circ}$N) has the highest electricity demand density in the
+country. It is served entirely at \SI{50}{\hertz} by Tokyo Electric
+Power Company (TEPCO) and Electric Power Development
+(``J-Power'')~\cite{tepco2024network}. Conversion to the western
+\SI{60}{\hertz} grid passes through only three back-to-back DC
+substations with limited capacity, so the internal resilience of the
+Kanto grid effectively sets the black-start capability for the eastern
+half of the country.
 
-This paper applies the network-dismantling framework to the Kanto
-\SI{500}{\kilo\volt}/\SI{275}{\kilo\volt} backbone and asks: \emph{which
-transmission edges, if removed, most rapidly fragment the bulk-power
-network?} We compare nine edge-ranking metrics drawn from recent literature
-on link criticality, evaluate them under both a static (one-shot ordering)
-and an iterative (rank-then-remove-then-recompute) regime, and report the
-implications for vulnerability assessment.
+This paper applies network dismantling to the Kanto
+\SI{500}{\kilo\volt}/\SI{275}{\kilo\volt} backbone and asks one
+question: \emph{which transmission edges, when removed, fragment the
+bulk-power network fastest?} We compare nine edge-ranking metrics from
+the recent link-criticality literature. We test each under a static
+regime (rank once, then remove) and an iterative regime (rank, remove,
+then recompute), and report what the results mean for vulnerability
+assessment.
 
 \section{Background and Related Work}
 \label{sec:background}
 
 \subsection{Edge ranking and network dismantling}
-The dismantling problem~\cite{braunstein2016network} asks for the smallest
-set of nodes (or edges) whose removal reduces the size of the largest
-connected component below a target threshold. For edge variants, ranking
-heuristics are typically evaluated by the relative-giant-component (RGC)
-curve as a function of removed-edge fraction, and summarised by the area
+The dismantling problem~\cite{braunstein2016network} asks for the
+smallest set of nodes (or edges) whose removal drops the largest
+connected component below a target size. For the edge version, a ranking
+heuristic is usually judged by the relative-giant-component (RGC) curve
+as a function of the fraction of edges removed, summarised by the area
 under the curve (AUC):
 \begin{equation}
 \text{AUC}(M) = \int_0^1 \text{RGC}\bigl(f \mid \text{order}_M\bigr)\, df
 \label{eq:auc}
 \end{equation}
-where $\text{order}_M$ is the removal order induced by metric $M$. Lower
-AUC implies a metric that identifies critical edges earlier in the removal
+where $\text{order}_M$ is the removal order induced by metric $M$. A
+lower AUC means the metric puts critical edges earlier in the removal
 sequence.
 
 \subsection{Power-grid topology}
 GridKit~\cite{wiegmans2016gridkit} extracted high-voltage transmission
-networks from OpenStreetMap (OSM) for Europe and North America, but does
-\emph{not} cover Japan. The
-ComplexNetTSP/Power\_grids project~\cite{complexnettsp2023} produced an
-analogous extraction for Japan directly from raw OSM \texttt{power=*} tags,
-yielding two CSVs: one for vertices (substations and line-segment
-junctions) and one for edges (transmission lines). We use this source.
+networks from OpenStreetMap (OSM) for Europe and North America, but it
+does \emph{not} cover Japan. The ComplexNetTSP/Power\_grids
+project~\cite{complexnettsp2023} built an equivalent extraction for
+Japan directly from raw OSM \texttt{power=*} tags. It gives two CSV
+files: one for vertices (substations and line-segment junctions) and one
+for edges (transmission lines). We use this source.
 
 \subsection{Edge criticality metrics}
-We evaluate nine metrics from three families. \textbf{Topological:}
-Link Degree Centrality (LDC, $k_u \cdot k_v$), Jaccard index of
+We test nine metrics from three families. \textbf{Topological:}
+Link Degree Centrality (LDC, $k_u \cdot k_v$), the Jaccard index of
 neighbourhood overlap, and Link $k$-Shell (LKS, $\text{core}(u) \cdot
 \text{core}(v)$). \textbf{Influence-based:} four variants of edge-level
-Collective Influence (CI) at radius $\ell{=}3$, distinguishing the ball
-``skin'' (nodes at exactly distance $\ell$) from the ball ``body'' (nodes
-within distance $\ell$), aggregated to edges by either average or product
-of endpoint scores~\cite{morone2015influence,kitsak2024edge}.
+Collective Influence (CI) at radius $\ell{=}3$, which separate the ball
+``skin'' (nodes at exactly distance $\ell$) from the ball ``body''
+(nodes within distance $\ell$) and aggregate endpoint scores to edges by
+either average or product~\cite{morone2015influence,kitsak2024edge}.
 \textbf{Entropy-based:} Link-Local Betweenness Centrality (LLBCe) and
-Link-Local Betweenness Mapping Entropy
-(LLBMEe1)~\cite{li2024llbce}. The latter two are recent and require careful
-implementation; see \Cref{sec:methods}.
+its mapping-entropy extension (LLBMEe1)~\cite{li2024llbce}. The last two
+are recent and need care to implement; see \Cref{sec:methods}.
 
 \section{Data and Network Construction}
 \label{sec:data}
 
 \subsection{Source data}
-We start from \texttt{japan\_nodes.csv} and \texttt{japan\_edges.csv} of
-the ComplexNetTSP Power\_grids release. Vertices carry \texttt{v\_id},
-longitude/latitude (WGS-84, EPSG:4326), \texttt{voltage} (volts),
-\texttt{frequency}, \texttt{name} (Japanese, with romaji where present),
-\texttt{operator}, and \texttt{typ} (substation, generator, joint, etc.).
-Edges carry endpoint pairs.
+We start from \texttt{japan\_nodes.csv} and \texttt{japan\_edges.csv} in
+the ComplexNetTSP Power\_grids release. Each vertex carries a
+\texttt{v\_id}, longitude and latitude (WGS-84, EPSG:4326),
+\texttt{voltage} (volts), \texttt{frequency}, a \texttt{name} (Japanese,
+with romaji where present), an \texttt{operator}, and a \texttt{typ}
+(substation, generator, joint, and so on). Each edge carries its two
+endpoints.
 
 \subsection{Geographic filter and largest connected component}
-We restrict to a Kanto bounding box
-\(\text{lon} \in [138.3, 141.0],\ \text{lat} \in [34.8, 37.1]\),
-and extract the largest connected component (LCC) of the resulting subgraph.
-This yields:
+We restrict the data to a Kanto bounding box
+\(\text{lon} \in [138.3, 141.0],\ \text{lat} \in [34.8, 37.1]\)
+and take the largest connected component (LCC) of the resulting
+subgraph. This gives:
 \begin{itemize}
 \item \num{156} nodes (\num{99} named substations or labelled junctions,
 \num{57} unlabelled OSM line-segment vertices),
@@ -149,37 +154,35 @@ This yields:
 \item diameter \num{23},
 \item degree distribution
 $[\,(1,29),(2,66),(3,39),(4,14),(5,3),(6,4),(7,1)\,]$
-yielding mean degree $\bar k = \num{2.44}$.
+giving a mean degree $\bar k = \num{2.44}$.
 \end{itemize}
-All retained nodes operate at \SI{50}{\hertz}; despite the loose
-longitudinal bound, no Chubu (\SI{60}{\hertz}) substation is included. The
-Eastern--Western frequency boundary at the Fuji and Sakuma converter
-stations falls just outside the western edge of the box.
+All retained nodes run at \SI{50}{\hertz}. Despite the loose longitude
+bound, no Chubu (\SI{60}{\hertz}) substation falls inside the box: the
+east-west frequency boundary at the Fuji and Sakuma converter stations
+sits just west of it.
 
 \subsection{Verification}
-A spot-check of \num{10}/\num{10} randomly chosen named substations
-confirmed real TEPCO/J-Power facilities at the listed coordinates,
-including Shin-Tokorozawa, Shin-Tama, Shin-Keiyo, Shin-Hadano,
-Shin-Okabe, B\=os\=o, Shin-Haruna, Shin-Sawara, Katsunan, and
-Shin-Fuji. Top-degree hubs were verified against TEPCO's published
-\SI{500}{\kilo\volt} backbone illustration~\cite{tepco2024network}.
+We spot-checked \num{10}/\num{10} randomly chosen named substations and
+confirmed real TEPCO/J-Power facilities at the listed coordinates:
+Shin-Tokorozawa, Shin-Tama, Shin-Keiyo, Shin-Hadano, Shin-Okabe,
+B\=os\=o, Shin-Haruna, Shin-Sawara, Katsunan, and Shin-Fuji. We checked
+the top-degree hubs against TEPCO's published \SI{500}{\kilo\volt}
+backbone illustration~\cite{tepco2024network}.
 
 \subsection{Caveats}
-Of \num{156} LCC nodes, \num{57} are unlabelled OSM line-segment
-junctions: places where the cartographer split a transmission corridor
-into multiple OSM ways for tagging or vertex-density reasons, but which
-do not correspond to a substation. These inflate the apparent
-diameter and contribute to the \num{56} bridges. We retain them because
-removing them changes edge counts and biases comparisons; readers
-interested in the substation-only topology can collapse them by merging
-degree-2 unnamed vertices.
+Of the \num{156} LCC nodes, \num{57} are unlabelled OSM line-segment
+junctions: points where a mapper split a transmission corridor into
+several OSM ways for tagging or vertex-density reasons, not actual
+substations. They inflate the apparent diameter and add to the \num{56}
+bridges. We keep them because removing them changes edge counts and
+would bias the comparison. A reader who wants the substation-only
+topology can collapse them by merging degree-2 unnamed vertices.
 
 \subsection{Regional decomposition}
-A coarse classification by lon/lat box (\Cref{tab:regions}) confirms the
-network's centroid in the Tokyo Metropolitan area, with \num{35}
-\SI{}{\percent} of edges in the Tokyo Metro West/East
-combined and \num{18}\,\% as inter-region transmission corridors that
-form the most exposed bridges.
+A coarse split by lon/lat box (\Cref{tab:regions}) places the network's
+centre in the Tokyo metropolitan area: \num{35}\,\% of edges fall in
+Tokyo Metro West and East combined, and \num{18}\,\% are inter-region
+corridors that form the most exposed bridges.
 
 \begin{table}[h]
 \centering
@@ -230,8 +233,8 @@ node-level CI is then
 \quad
 \text{CI}_B(u) = (k_u - 1) \sum_{w \in \text{Ball}(u, \ell)} (k_w - 1).
 \end{equation}
-These are aggregated to edges by either arithmetic mean or product of
-endpoint scores, yielding four edge-level columns:
+We aggregate these to edges by arithmetic mean or product of the
+endpoint scores, which gives four edge-level columns:
 $\text{CI\_e\_av\_skin}, \text{CI\_e\_mul\_skin},
 \text{CI\_e\_av\_body}, \text{CI\_e\_mul\_body}$.
 
@@ -247,19 +250,18 @@ The Link-Local Betweenness Centrality is then
 \frac{\sigma_{st}(e)}{\sigma_{st}},
 \label{eq:llbce}
 \end{equation}
-where $\sigma_{st}$ is the number of shortest $s$--$t$ paths in $G$ and
-$\sigma_{st}(e)$ the number passing through $e$. Crucially, the source
-and target sets are restricted to $\Gamma(e)$, but path computation
-remains in the full graph $G$ --- subgraph extraction is forbidden, as
-that would change shortest-path lengths and yield qualitatively
-different rankings. We implement \Cref{eq:llbce} via NetworkX's
-\texttt{edge\_betweenness\_centrality\_subset} with both \texttt{sources}
-and \texttt{targets} set to $\Gamma(e)$, and divide the unnormalised
-output by $|\Gamma(e)|(|\Gamma(e)|{-}1)$.
+where $\sigma_{st}$ is the number of shortest paths between $s$ and $t$
+in $G$, and $\sigma_{st}(e)$ is the number of those paths that pass
+through $e$. The source and target sets are restricted to $\Gamma(e)$,
+but the path computation stays in the full graph $G$. We do not extract
+a subgraph, because that would change shortest-path lengths and give
+different rankings. We implement \Cref{eq:llbce} with NetworkX's
+\texttt{edge\_betweenness\_centrality\_subset}, setting both
+\texttt{sources} and \texttt{targets} to $\Gamma(e)$, then dividing the
+unnormalised output by $|\Gamma(e)|(|\Gamma(e)|{-}1)$.
 
-The Link-Local Betweenness Mapping Entropy LLBMEe1 evaluates the
-distributional concentration of LLBCe values over edges incident to
-either endpoint of $e_1$:
+The mapping entropy LLBMEe1 measures how concentrated the LLBCe values
+are across the edges that touch either endpoint of $e_1$:
 \begin{equation}
 \text{LLBMEe1}(e_1) = -\sum_{e_k \in \Gamma_E(e_1)}
 p_k \log p_k,
@@ -267,30 +269,28 @@ p_k \log p_k,
 p_k = \frac{\text{LLBCe}(e_k)}{\sum_{e_j \in \Gamma_E(e_1)} \text{LLBCe}(e_j)},
 \label{eq:llbme}
 \end{equation}
-where $\Gamma_E(e_1)$ is the set of edges incident to $u$ or $v$. Edges
-with concentrated mass (a single dominant neighbour) yield low LLBMEe1;
-edges in homogeneous bottlenecks yield high LLBMEe1.
+where $\Gamma_E(e_1)$ is the set of edges incident to $u$ or $v$. An
+edge whose neighbourhood mass sits on one dominant neighbour gives a low
+LLBMEe1; an edge in a uniform bottleneck gives a high one.
 
 \subsection{Static and iterative dismantling}
-Given a metric $M$, the \emph{static} curve sorts edges once, removes
-them in that order, and records RGC after each removal. The
-\emph{iterative} curve recomputes $M$ on the residual graph after every
-removal, picks the current top edge, and proceeds. AUC is computed via
-$\texttt{numpy.trapezoid}$.
+Given a metric $M$, the \emph{static} curve sorts the edges once, removes
+them in that order, and records the RGC after each removal. The
+\emph{iterative} curve recomputes $M$ on the remaining graph after every
+removal, takes the current top edge, and repeats. We compute the AUC with
+\texttt{numpy.trapezoid}.
 
 \section{Results}
 \label{sec:results}
 
 \subsection{Static AUC ranking on Kanto}
 \Cref{tab:tokyo-static} gives the static AUC for each metric on the Kanto
-LCC. LLBCe attains the lowest AUC ($0.174$), markedly better than the
-next group of metrics (Jaccard, LLBMEe1, LKS, LDC, all in the range
-$0.220$--$0.238$), and notably better than the four CI variants
-($0.251$--$0.275$). The latter is a known
-phenomenon~\cite{kitsak2024edge}: CI's targeting of bulk influence on
-nodes does not necessarily map to bridge-style transmission corridors,
-which are precisely the structures that fragment a sparse \SI{500}{\kilo\volt}
-backbone.
+LCC. LLBCe has the lowest AUC ($0.174$), well below the next group
+(Jaccard, LLBMEe1, LKS, and LDC, all between $0.220$ and $0.238$) and the
+four CI variants (between $0.251$ and $0.275$). The weak CI result is a
+known effect~\cite{kitsak2024edge}: CI targets bulk influence on nodes,
+which does not map well onto bridge-style transmission corridors, and
+those bridges are what fragment a sparse \SI{500}{\kilo\volt} backbone.
 
 \begin{table}[h]
 \centering
@@ -315,19 +315,18 @@ CI\_e\_av\_skin     & 0.275 \\
 \end{table}
 
 \subsection{Static vs.\ iterative regime}
-\Cref{tab:tokyo-iter} compares static and iterative AUCs, with
-relative change. Three observations:
+\Cref{tab:tokyo-iter} compares the static and iterative AUCs and their
+relative change. Three points stand out:
 \begin{enumerate}
-\item LLBCe retains the top spot iteratively ($0.171$, $-1.5\,\%$),
-suggesting that the bridge structure it identifies is robust to
-removal-order dynamics.
-\item CI variants improve dramatically iteratively ($-25\,\%$ for the
-single column reported in \texttt{dashboard\_data.json}), indicating
-that recomputing CI after each removal correctly tracks the changing
-ball structure.
-\item LDC (already a poor performer statically) gains modestly
-iteratively, consistent with the observation that local-degree heuristics
-are short-sighted but self-correcting under recomputation.
+\item LLBCe stays on top in the iterative regime ($0.171$, $-1.5\,\%$),
+so the bridge structure it picks out is stable under removal-order
+dynamics.
+\item The CI variants improve sharply ($-25\,\%$ for the column reported
+in \texttt{dashboard\_\allowbreak data.json}), so recomputing CI after each
+removal tracks the changing ball structure correctly.
+\item LDC, already weak statically, gains a little iteratively.
+Local-degree heuristics are short-sighted but partly self-correct once
+ranks are recomputed.
 \end{enumerate}
 
 \begin{table}[h]
@@ -350,15 +349,13 @@ CI (mul\_skin)      & 0.255 & 0.191 & $-0.064$ & $-25.1\%$ \\
 \end{table}
 
 \subsection{Top critical edges}
-\Cref{tab:top-edges} lists the ten edges with highest LLBCe. The two
-top-ranked edges --- (Shin-Koga $\leftrightarrow$ Kita-Tokyo) at
-LLBCe $= 34.5$ and (Shin-Tokorozawa $\leftrightarrow$ Chu-Tokyo) at
-LLBCe $= 19.0$ --- are exactly the trunk lines that any TEPCO illustrated
-network plan~\cite{tepco2024network} highlights as carrying the bulk
-of southwest-northeast power flow into the Tokyo metropolitan core.
-The fact that purely topological reasoning rediscovers this without
-electrical-load information is one of the central observations of this
-paper.
+\Cref{tab:top-edges} lists the ten edges with the highest LLBCe. The top
+two, Shin-Koga $\leftrightarrow$ Kita-Tokyo (LLBCe $= 34.5$) and
+Shin-Tokorozawa $\leftrightarrow$ Chu-Tokyo (LLBCe $= 19.0$), are the
+trunk lines that TEPCO's illustrated network plan~\cite{tepco2024network}
+marks as carrying most of the southwest-to-northeast power flow into the
+Tokyo core. Topology alone recovers these lines without any
+electrical-load data, which is one of the main results of this paper.
 
 \begin{table}[h]
 \centering
@@ -385,10 +382,10 @@ Rank & Endpoint $i$ & Endpoint $j$ & LLBCe & LDC & LKS \\
 \end{table}
 
 \subsection{Cross-dataset comparison}
-We re-ran the same metrics on three smaller benchmark networks
-(Karate club, Jazz musician collaborations, US college football) for
-calibration. \Cref{tab:xdataset} reports iterative-vs-static AUC change
-per metric:
+We re-ran the same metrics on three smaller benchmark networks for
+calibration: the Karate club, Jazz musician collaborations, and US
+college football. \Cref{tab:xdataset} reports the iterative-minus-static
+AUC change per metric.
 
 \begin{table}[h]
 \centering
@@ -410,22 +407,21 @@ CI       & $+0.002$ & $-0.024$ & $+0.097$ & $-0.064$ \\
 \end{tabular}
 \end{table}
 
-LLBCe is the only metric that wins iteratively on \emph{all four} datasets,
-reinforcing its role as the most robust general-purpose edge-criticality
-metric in this evaluation. The Kanto grid is the only dataset where
-Jaccard \emph{loses} ground iteratively --- consistent with the
-sparseness of the high-voltage backbone (most edges have empty
-neighbour intersections, so Jaccard ties early and degrades on
-recomputation).
+LLBCe is the only metric that wins iteratively on \emph{all four}
+datasets, which makes it the most reliable general-purpose
+edge-criticality metric in this set. Kanto is the only dataset where
+Jaccard \emph{loses} ground iteratively. This fits the sparseness of the
+high-voltage backbone: most edges have empty neighbour intersections, so
+Jaccard ties early and degrades once ranks are recomputed.
 
 \subsection{Visualisation}
 \Cref{fig:kanto-map} (when rendered) overlays the full LCC on an
 OpenStreetMap basemap of Kanto. Edges are coloured by LLBCe rank
-percentile, with the seven highest-degree trunk hubs labelled in romaji.
-The visual confirms that the most-critical edges form a roughly
-W--E corridor through the Tokyo metropolitan core, with secondary
-critical bridges connecting the Boso peninsula to the mainland and the
-Gunma--Tochigi northern hubs to the Saitama--Tokyo region.
+percentile, and the seven highest-degree trunk hubs are labelled in
+romaji. The most critical edges form a rough west-to-east corridor
+through the Tokyo core. Secondary bridges connect the Boso peninsula to
+the mainland and the northern Gunma and Tochigi hubs to the Saitama and
+Tokyo region.
 
 \begin{figure}[h]
 \centering
@@ -443,90 +439,87 @@ Shin-Fuji.}
 
 \subsection{Why LLBCe wins}
 The Kanto grid is a sparse ($\bar k = 2.44$), tree-like backbone with
-\num{56} bridges and diameter \num{23}. In such networks, global
-betweenness on the full graph is dominated by a handful of edges that
-sit on long structural paths --- but it is too coarse to discriminate
-between them. LLBCe's restriction of source/target sets to the
-edge's first-order neighbourhood $\Gamma(e)$ acts as a local
-``importance weighting'' that effectively asks: \emph{among the
-\num{2}--\num{12} substations within one hop of this edge, what
-fraction of their pairwise shortest paths actually use it?} This both
-rescales scores to the local edge-density (so a bridge in a dense
-metropolitan cluster scores comparably to one in a sparse rural area)
-and remains computable on every edge in the order of seconds even with
+\num{56} bridges and diameter \num{23}. In a network like this, global
+betweenness on the full graph is dominated by a few edges on long
+structural paths, but it is too coarse to tell them apart. LLBCe
+restricts the source and target sets to the edge's first-order
+neighbourhood $\Gamma(e)$, which acts as a local importance weight. It
+asks: \emph{among the \num{2} to \num{12} substations within one hop of
+this edge, what fraction of their pairwise shortest paths use it?} This
+rescales the score to the local edge density, so a bridge in a dense
+metropolitan cluster scores about the same as one in a sparse rural
+area, and it stays computable on every edge in seconds even at
 \num{156} nodes.
 
 \subsection{Why CI underperforms statically}
 CI was designed for node-level immunisation in scale-free networks with
-heavy degree tails. The Kanto grid has degree distribution capped at
-\num{7} (no hub-and-spoke superhub), so CI's preferential weighting of
-high-degree nodes inside the ball does not translate cleanly to edge
-ranks. Iteratively recomputing CI rescues much of this performance
-($-25\,\%$ relative AUC), confirming that the static failure is
-information-theoretic (the CI score becomes stale immediately after the
-first removal) rather than methodological.
+heavy degree tails. The Kanto grid caps degree at \num{7}, with no
+hub-and-spoke superhub, so CI's preference for high-degree nodes inside
+the ball does not carry over cleanly to edge ranks. Recomputing CI
+iteratively recovers much of the lost performance ($-25\,\%$ relative
+AUC). The static failure is therefore about stale information, since the
+CI score goes out of date right after the first removal, rather than a
+flaw in the method.
 
 \subsection{Practical implications}
-The seven trunk hubs identified
-(\Cref{fig:kanto-map}) are precisely the substations that TEPCO
-publicly designates as
-\SI{500}{\kilo\volt} interconnection points~\cite{tepco2024network}.
-The top-ten LLBCe edges (\Cref{tab:top-edges}) all carry combinations
-of \SI{275}{\kilo\volt} and \SI{500}{\kilo\volt} feeders. Operators
-performing $N{-}1$ contingency analysis on this network should
-prioritise these corridors; planners considering trunk reinforcements
-should view the Shin-Koga $\leftrightarrow$ Kita-Tokyo edge as
-the most structurally exposed single-line failure point.
+The seven trunk hubs (\Cref{fig:kanto-map}) are the substations that
+TEPCO lists as \SI{500}{\kilo\volt} interconnection
+points~\cite{tepco2024network}. The top-ten LLBCe edges
+(\Cref{tab:top-edges}) all carry a mix of \SI{275}{\kilo\volt} and
+\SI{500}{\kilo\volt} feeders. Operators running $N{-}1$ contingency
+analysis on this network should prioritise these corridors, and planners
+weighing trunk reinforcements should treat the Shin-Koga
+$\leftrightarrow$ Kita-Tokyo edge as the most exposed single-line
+failure point.
 
 \section{Threats to Validity}
 \label{sec:validity}
 
 \paragraph{OSM completeness.}
-The ComplexNetTSP extraction is bounded by what OSM contributors have
-mapped. We verified \num{10}/\num{10} named substations against TEPCO's
+The ComplexNetTSP extraction is limited to what OSM contributors have
+mapped. We checked \num{10}/\num{10} named substations against TEPCO's
 illustrated facility plan, but the \num{57} unnamed line-segment vertices
-suggest that \emph{some} segments may be over-fragmented relative to
-their physical topology. Authoritative data from TEPCO is not publicly
-released as a graph; the closest published proxy is Toyoda et
-al.~\cite{toyoda2008japan}.
+suggest that some segments are over-fragmented relative to their physical
+layout. TEPCO does not release authoritative data as a graph; the
+closest published proxy is Toyoda et al.~\cite{toyoda2008japan}.
 
 \paragraph{No electrical model.}
 We treat the network as a topological graph with unit weights. A
-production vulnerability assessment would weight edges by line
-admittance, capacity, and seasonal load profile. The metrics here
-identify topologically critical edges, not necessarily electrically
-critical ones; the two coincide approximately but not exactly.
+production assessment would weight edges by electrical properties like
+line admittance and seasonal load. The metrics here find topologically critical edges,
+not necessarily electrically critical ones; the two roughly agree but
+not exactly.
 
 \paragraph{Tied-path non-determinism.}
-NetworkX's \texttt{edge\_betweenness\_centrality\_subset} resolves
-shortest-path ties in dict-iteration order. For LLBCe values where many
-paths tie (common in trunk corridors with parallel \SI{500}{\kilo\volt}
-and \SI{275}{\kilo\volt} segments), values may differ at the third or
-fourth significant figure across runs. Rankings are stable, but exact
-AUC reproduction requires explicit sorting of node iteration.
+NetworkX's \texttt{edge\_betweenness\_centrality\_subset} breaks
+shortest-path ties in dict-iteration order. When many paths tie, which is
+common in trunk corridors with parallel \SI{500}{\kilo\volt} and
+\SI{275}{\kilo\volt} segments, LLBCe values can differ at the third or
+fourth significant figure between runs. The rankings stay stable, but
+reproducing the exact AUC needs the node iteration to be sorted
+explicitly.
 
 \paragraph{Frequency boundary.}
-The bounding box leaks slightly west of the \SI{50}{}/\SI{60}{\hertz}
-divide; in practice no Chubu (\SI{60}{\hertz}) node is included, but
-this is by data luck, not by an explicit frequency filter. A second
-production filter on \texttt{frequency = 50} would harden the
-boundary.
+The bounding box reaches slightly west of the \SI{50}{\hertz}/\SI{60}{\hertz}
+divide. In practice no Chubu (\SI{60}{\hertz}) node falls inside, but
+that is luck in the data, not an explicit frequency filter. Adding a
+filter on \texttt{frequency = 50} would harden the boundary.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-The Kanto \SI{500}{\kilo\volt}/\SI{275}{\kilo\volt} backbone, despite
-serving the world's most populous metropolitan area, presents as a
-remarkably sparse network whose vulnerability is dominated by a small
-number of bridge corridors. Across nine edge-criticality metrics
-evaluated under both static and iterative dismantling regimes,
-Link-Local Betweenness Centrality (LLBCe) emerges as the most effective
-ranker, with static AUC $= 0.174$ and stable iterative performance.
-The top critical edges identified --- chiefly along the Shin-Koga,
-Shin-Tokorozawa, and Shin-Keiyo trunks --- align with TEPCO's published
-\SI{500}{\kilo\volt} interconnection map, validating the pure-topology
-approach. Future work should fuse the topology with line-admittance
-and capacity data to deliver an electrically-aware criticality score.
+The Kanto \SI{500}{\kilo\volt}/\SI{275}{\kilo\volt} backbone serves the
+world's most populous metropolitan area, yet it is a sparse network whose
+vulnerability comes down to a small number of bridge corridors. Across
+nine edge-criticality metrics, tested under both static and iterative
+dismantling, Link-Local Betweenness Centrality (LLBCe) is the most
+effective ranker, with a static AUC of $0.174$ and stable iterative
+performance. The top critical edges, mostly along the Shin-Koga,
+Shin-Tokorozawa, and Shin-Keiyo trunks, line up with TEPCO's published
+\SI{500}{\kilo\volt} interconnection map, which supports the
+pure-topology approach. Future work should combine the topology with
+line-admittance and capacity data to give an electrically aware
+criticality score.
 
 \section*{Reproducibility}
 
@@ -534,23 +527,26 @@ All code, data references, and configuration are in the
 \texttt{NetworkEntropy} repository on branch \texttt{iterative-method}.
 Key entry points:
 \begin{itemize}
-\item \texttt{PowerGrid\_City/download\_and\_filter\_tokyo.py} ---
+\raggedright
+\item \texttt{PowerGrid\_City/\allowbreak download\_and\_filter\_tokyo.py}:
 re-extracts the Kanto LCC from ComplexNetTSP CSVs.
-\item \texttt{PowerGrid\_City/run\_city\_analysis.py} --- computes the
-nine metrics and writes \texttt{results\_city/tokyo\_grid\_metrics.csv}.
-\item \texttt{PowerGrid\_City/run\_iterative\_analysis.py --method M}
---- iterative dismantling per metric.
-\item \texttt{PowerGrid\_City/render\_kanto\_map.py} --- folium HTML
+\item \texttt{PowerGrid\_City/\allowbreak run\_city\_analysis.py}: computes the
+nine metrics and writes
+\texttt{results\_city/\allowbreak tokyo\_grid\_metrics.csv}.
+\item \texttt{PowerGrid\_City/\allowbreak run\_iterative\_analysis.py
+--method M}: iterative dismantling per metric.
+\item \texttt{PowerGrid\_City/\allowbreak render\_kanto\_map.py}: folium HTML
 and matplotlib PNG of \Cref{fig:kanto-map}.
-\item \texttt{PowerGrid\_City/build\_inventory.py} --- regenerates
+\item \texttt{PowerGrid\_City/\allowbreak build\_inventory.py}: regenerates
 the per-substation inventory in
-\texttt{results\_city/tokyo\_grid\_inventory.md}.
-\item \texttt{build\_comparison\_xlsx.py} --- rebuilds the
+\texttt{results\_city/\allowbreak tokyo\_grid\_inventory.md}.
+\item \texttt{build\_comparison\_xlsx.py}: rebuilds the
 cross-dataset xlsx workbook.
 \end{itemize}
 
 % --- Bibliography -----------------------------------------------------------
 \begin{thebibliography}{99}
+\raggedright
 
 \bibitem{albert2004structural}
 R.~Albert, I.~Albert, and G.~L. Nakarado.

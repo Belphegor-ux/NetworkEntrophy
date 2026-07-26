@@ -8,6 +8,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# Reproducibility: deterministic tie-breaks in EBC and any RNG-driven path.
+# Matches Silam's reference scripts (np.random.seed(42)).
+np.random.seed(42)
+
 # Global Style Settings
 plt.style.use('seaborn-v0_8-whitegrid')
 plt.rcParams['font.family'] = 'sans-serif'
@@ -28,14 +32,24 @@ class NetworkDismantler:
         self.N = graph.number_of_nodes()
         self.M = graph.number_of_edges()
 
-    def get_static_curve(self, df_scores, metric_column, reverse=True):
+    def get_static_curve(self, df_scores, metric_column, reverse=True, return_order=False):
         """
         Performs static decomposition based on a DataFrame of scores.
+
+        When return_order is True, returns (rgc_values, removal_order) where
+        removal_order is the list of (i, j) edges in the order they are removed.
         """
         G = self.original_graph.copy()
 
-        # Sort edges (Reverse=True means Higher Score = Remove First)
-        sorted_df = df_scores.sort_values(by=metric_column, ascending=not reverse)
+        # Sort edges (Reverse=True means Higher Score = Remove First).
+        # Tie-break: edge tuple (i, j) descending — matches Silam's universal rule
+        # `max((score, edge_tuple))`, which always prefers the larger edge tuple
+        # regardless of whether the score itself is sorted ascending or descending.
+        sorted_df = df_scores.sort_values(
+            by=[metric_column, 'i', 'j'],
+            ascending=[not reverse, False, False],
+            kind='mergesort',
+        )
         removal_order = list(zip(sorted_df['i'], sorted_df['j']))
 
         # Simulate Removal
@@ -58,11 +72,27 @@ class NetworkDismantler:
 
             rgc_values.append(rgc)
 
+        if return_order:
+            return rgc_values, removal_order
         return rgc_values
+
+def _resolve_reverse(reverse, metric_col):
+    """Resolve a bool-or-dict reverse spec for a given metric column.
+
+    A dict lets different metric columns be dismantled in opposite directions
+    (e.g. LLBCe high-first vs LLBMEe1 smallest-first); missing keys default True.
+    """
+    if isinstance(reverse, dict):
+        return reverse.get(metric_col, True)
+    return reverse
 
 def run_and_plot(graph, method_name, rank_func, filename, reverse=True):
     """
     Helper to run analysis and save plot for a single method or multiple metrics in a DataFrame.
+
+    reverse may be a bool (applied to every metric column) or a dict mapping
+    column name -> bool, so columns returned by one rank_func can be removed in
+    opposite directions.
     """
     print(f"Running analysis for: {method_name}...")
     dismantler = NetworkDismantler(graph)
@@ -78,7 +108,8 @@ def run_and_plot(graph, method_name, rank_func, filename, reverse=True):
     results = {}
     for metric_col in metric_cols:
         print(f"  - Processing metric: {metric_col}")
-        rgc = dismantler.get_static_curve(df_scores, metric_col, reverse=reverse)
+        col_reverse = _resolve_reverse(reverse, metric_col)
+        rgc = dismantler.get_static_curve(df_scores, metric_col, reverse=col_reverse)
 
         # Calculate AUC
         x = np.linspace(0, 1, len(rgc))

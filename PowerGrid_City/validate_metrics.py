@@ -36,13 +36,26 @@ def validate_metrics(csv_path, report_path):
     else:
         range_results.append("✅ Jaccard: All values within [0, 1]")
         
-    # Non-negative metrics
-    non_neg_cols = ['LDC', 'LKS', 'CI_e_av_skin', 'CI_e_mul_skin', 'CI_e_av_body', 'CI_e_mul_body', 'LLBCe', 'LLBMEe1']
+    # Non-negative metrics (LLBMEe1 is intentionally <= 0 and handled separately).
+    non_neg_cols = ['LDC', 'LKS', 'CI_e_av_skin', 'CI_e_mul_skin', 'CI_e_av_body', 'CI_e_mul_body', 'LLBCe']
     for col in non_neg_cols:
         if (df[col] < 0).any():
             range_results.append(f"❌ {col}: Negative values found")
         else:
             range_results.append(f"✅ {col}: All values are non-negative")
+
+    # LLBMEe1: inverted-criticality metric. By construction it is <= 0
+    # (smallest = most critical). Some edges can flip positive when raw subset
+    # betweenness < 1 makes log() negative; report that as info, not a failure.
+    if 'LLBMEe1' in df.columns:
+        n_pos = int((df['LLBMEe1'] > 0).sum())
+        if n_pos == 0:
+            range_results.append("✅ LLBMEe1: all values <= 0 (smallest = most critical)")
+        else:
+            range_results.append(
+                f"ℹ️ LLBMEe1: {n_pos} edge(s) > 0 — raw-betweenness log sign flip; "
+                "review raw-vs-normalized semantics"
+            )
 
     # Edge distinctness (i != j)
     if (df['i'] == df['j']).any():

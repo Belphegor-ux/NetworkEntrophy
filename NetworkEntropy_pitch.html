@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetworkEntropy — Identifying Critical Edges in Complex Networks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ===========================================
+   VIEWPORT FITTING: MANDATORY BASE STYLES
+   =========================================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; overflow-x: hidden; }
+html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+
+.slide {
+    width: 100vw; height: 100vh; height: 100dvh;
+    overflow: hidden; scroll-snap-align: start;
+    display: flex; flex-direction: column; position: relative;
+}
+.slide-content {
+    flex: 1; display: flex; flex-direction: column; justify-content: center;
+    max-height: 100%; overflow: hidden; padding: var(--slide-padding);
+    z-index: 2;
+}
+
+:root {
+    --title-size: clamp(1.6rem, 5.2vw, 4.2rem);
+    --h2-size: clamp(1.25rem, 3.4vw, 2.4rem);
+    --h3-size: clamp(1rem, 2.3vw, 1.6rem);
+    --body-size: clamp(0.78rem, 1.45vw, 1.08rem);
+    --small-size: clamp(0.62rem, 1vw, 0.84rem);
+    --slide-padding: clamp(1.25rem, 4.5vw, 4.5rem);
+    --content-gap: clamp(0.5rem, 2vw, 1.6rem);
+    --element-gap: clamp(0.25rem, 1vw, 1rem);
+
+    /* THEME */
+    --bg:        #07090f;
+    --bg-2:      #0c1018;
+    --panel:     #11161f;
+    --ink:       #eaf0f7;
+    --ink-dim:   #9aa7b8;
+    --line:      #243044;
+    --cyan:      #34e0d4;
+    --magenta:   #f0567f;
+    --amber:     #ffc24b;
+    --violet:    #8b7bff;
+    --good:      #34e0d4;
+    --bad:       #5b6b82;
+}
+
+body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-size: var(--body-size);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* atmospheric background */
+.slide::before {
+    content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(60vw 60vw at 85% -10%, rgba(52,224,212,0.10), transparent 60%),
+      radial-gradient(55vw 55vw at -10% 110%, rgba(240,86,127,0.09), transparent 60%),
+      linear-gradient(180deg, var(--bg), var(--bg-2));
+}
+.slide::after { /* faint grid */
+    content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: .5;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: clamp(28px,4vw,56px) clamp(28px,4vw,56px);
+    mask-image: radial-gradient(circle at 50% 50%, #000 30%, transparent 85%);
+}
+
+mark { background: none; color: var(--cyan); }
+.mg { color: var(--magenta); }
+.am { color: var(--amber); }
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* eyebrow / kicker */
+.kicker {
+    font-family: 'JetBrains Mono', monospace; font-size: var(--small-size);
+    letter-spacing: .28em; text-transform: uppercase; color: var(--cyan);
+    display: flex; align-items: center; gap: .7em; margin-bottom: var(--element-gap);
+}
+.kicker::before { content:""; width: clamp(18px,3vw,42px); height: 1px; background: var(--cyan); display:inline-block; }
+
+h1 { font-size: var(--title-size); font-weight: 700; line-height: 1.02; letter-spacing: -0.02em; }
+h2 { font-size: var(--h2-size); font-weight: 600; line-height: 1.08; letter-spacing: -0.015em; }
+h3 { font-size: var(--h3-size); font-weight: 600; }
+p  { color: var(--ink-dim); max-width: 62ch; }
+
+.lead { font-size: clamp(0.92rem,1.9vw,1.35rem); color: var(--ink-dim); max-width: 70ch; }
+
+/* reveal */
+.reveal > * { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s cubic-bezier(.22,1,.36,1); }
+.slide.active .reveal > * { opacity: 1; transform: none; }
+.slide.active .reveal > *:nth-child(2){ transition-delay:.08s }
+.slide.active .reveal > *:nth-child(3){ transition-delay:.16s }
+.slide.active .reveal > *:nth-child(4){ transition-delay:.24s }
+.slide.active .reveal > *:nth-child(5){ transition-delay:.32s }
+.slide.active .reveal > *:nth-child(6){ transition-delay:.40s }
+.slide.active .reveal > *:nth-child(7){ transition-delay:.48s }
+
+/* layout helpers */
+.grid { display: grid; gap: clamp(.6rem,1.6vw,1.1rem); }
+.cols-2 { grid-template-columns: 1.05fr .95fr; }
+.cols-3 { grid-template-columns: repeat(3,1fr); }
+@media (max-width: 760px){ .cols-2,.cols-3 { grid-template-columns: 1fr; } }
+
+.card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012));
+    border: 1px solid var(--line); border-radius: 14px;
+    padding: clamp(.8rem,1.8vw,1.4rem);
+    backdrop-filter: blur(6px);
+}
+.card h3 { margin-bottom: .35em; }
+.card p { font-size: var(--body-size); }
+.card .tag { font-family:'JetBrains Mono',monospace; font-size:var(--small-size); color:var(--cyan); }
+
+/* metric bars */
+.bars { display:flex; flex-direction:column; gap: clamp(.32rem,.9vh,.55rem); width:100%; }
+.bar-row { display:grid; grid-template-columns: clamp(7rem,16vw,11rem) 1fr clamp(3rem,6vw,4rem); align-items:center; gap:.6rem; }
+.bar-row .name { font-family:'JetBrains Mono',monospace; font-size:var(--small-size); color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bar-track { height: clamp(14px,2.2vh,22px); background: rgba(255,255,255,0.04); border-radius: 6px; overflow:hidden; border:1px solid var(--line); }
+.bar-fill { height:100%; width:0; border-radius:6px 0 0 6px; transition: width 1s cubic-bezier(.22,1,.36,1); background: linear-gradient(90deg, var(--bad), #7e8da3); }
+.slide.active .bar-fill { width: var(--w); }
+.bar-row.best .bar-fill { background: linear-gradient(90deg, var(--cyan), #6ef0e6); box-shadow: 0 0 16px rgba(52,224,212,.35); }
+.bar-row.best .name { color: var(--cyan); }
+.bar-row .val { font-family:'JetBrains Mono',monospace; font-size:var(--small-size); text-align:right; color:var(--ink); }
+.bar-row.best .val { color: var(--cyan); }
+
+/* data table */
+table { width:100%; border-collapse: collapse; font-size: clamp(.7rem,1.25vw,.95rem); }
+th, td { text-align:left; padding: clamp(.3rem,.9vh,.55rem) clamp(.4rem,1vw,.8rem); border-bottom: 1px solid var(--line); }
+th { font-family:'JetBrains Mono',monospace; font-size: var(--small-size); letter-spacing:.12em; text-transform:uppercase; color: var(--ink-dim); font-weight:500; }
+td.mono, th.mono { font-family:'JetBrains Mono',monospace; }
+tr td:first-child { color: var(--ink); }
+.win { color: var(--cyan); font-weight:600; }
+
+/* big stat */
+.stat-row { display:flex; flex-wrap:wrap; gap: clamp(1rem,3vw,2.6rem); }
+.stat .num { font-family:'JetBrains Mono',monospace; font-size: clamp(1.8rem,5vw,3.4rem); font-weight:700; line-height:1; color: var(--cyan); }
+.stat .lbl { font-size: var(--small-size); color: var(--ink-dim); margin-top:.4em; text-transform:uppercase; letter-spacing:.14em; }
+.stat.mg .num { color: var(--magenta); }
+.stat.am .num { color: var(--amber); }
+
+ul.clean { list-style:none; display:flex; flex-direction:column; gap: clamp(.4rem,1.1vh,.85rem); }
+ul.clean li { display:flex; gap:.7em; align-items:flex-start; font-size: var(--body-size); color: var(--ink); }
+ul.clean li::before { content:"▸"; color: var(--cyan); flex:0 0 auto; line-height:1.45; }
+ul.clean li span { color: var(--ink-dim); }
+
+.footnote { font-family:'JetBrains Mono',monospace; font-size: clamp(.55rem,.85vw,.72rem); color:#5e6b7d; margin-top: var(--element-gap); }
+
+/* slide number + progress */
+.slide-no { position:absolute; top: clamp(1rem,2.5vw,2rem); right: clamp(1rem,2.5vw,2.4rem); z-index:5;
+    font-family:'JetBrains Mono',monospace; font-size: var(--small-size); color: var(--ink-dim); letter-spacing:.1em; }
+.brandmark { position:absolute; top: clamp(1rem,2.5vw,2rem); left: clamp(1.25rem,4.5vw,4.5rem); z-index:5;
+    font-family:'JetBrains Mono',monospace; font-size: var(--small-size); letter-spacing:.2em; color: var(--ink-dim); text-transform:uppercase; }
+.brandmark b { color: var(--ink); font-weight:700; }
+.progress { position:fixed; left:0; top:0; height:3px; width:0; background: linear-gradient(90deg,var(--cyan),var(--magenta)); z-index:50; transition: width .25s ease; }
+.nav-dots { position:fixed; right: clamp(.6rem,1.4vw,1.1rem); top:50%; transform:translateY(-50%); z-index:50; display:flex; flex-direction:column; gap:.55rem; }
+.nav-dots button { width:8px; height:8px; border-radius:50%; border:1px solid var(--line); background:transparent; cursor:pointer; padding:0; transition: all .25s ease; }
+.nav-dots button.on { background: var(--cyan); border-color: var(--cyan); box-shadow:0 0 10px rgba(52,224,212,.6); transform:scale(1.25); }
+.hint { position:fixed; bottom: clamp(.5rem,1.4vw,1rem); left:50%; transform:translateX(-50%); z-index:50;
+    font-family:'JetBrains Mono',monospace; font-size: clamp(.55rem,.8vw,.7rem); color:#4d5868; letter-spacing:.15em; }
+
+/* title slide special */
+.hero-tag { display:inline-flex; gap:.6em; flex-wrap:wrap; }
+.pill { font-family:'JetBrains Mono',monospace; font-size: var(--small-size); border:1px solid var(--line); border-radius:999px; padding:.35em .9em; color:var(--ink-dim); }
+.pill.on { color: var(--cyan); border-color: rgba(52,224,212,.4); }
+
+/* floating network motif on title */
+.netviz { position:absolute; inset:0; z-index:1; opacity:.5; }
+@media (prefers-reduced-motion: reduce){ .reveal > *{transition-duration:.2s} }
+
+/* short screens */
+@media (max-height: 700px){ :root{ --slide-padding: clamp(.9rem,3vw,2rem); --title-size: clamp(1.4rem,4.6vw,2.6rem);} .nav-dots{display:none} }
+@media (max-height: 560px){ .hint,.brandmark{display:none} }
+@media (max-width: 600px){ :root{ --title-size: clamp(1.4rem,8vw,2.6rem);} .bar-row{grid-template-columns: 6rem 1fr 3rem;} }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<nav class="nav-dots" id="dots" aria-label="Slide navigation"></nav>
+<div class="hint">← → / scroll / swipe to navigate</div>
+
+<main>
+
+<!-- 1 · TITLE -->
+<section class="slide" id="s1">
+  <svg class="netviz" id="netviz" preserveAspectRatio="xMidYMid slice"></svg>
+  <div class="slide-content reveal">
+    <div class="kicker">Network Science · Infrastructure Resilience</div>
+    <h1>Network<span class="mg">Entropy</span></h1>
+    <p class="lead">Identifying the <mark>critical edges</mark> in complex networks — the links whose failure fragments the whole — using topological and entropy-based ranking, validated on a real city-scale power grid.</p>
+    <div class="hero-tag" style="margin-top:var(--content-gap)">
+      <span class="pill on">9 ranking metrics</span>
+      <span class="pill on">9 networks</span>
+      <span class="pill on">Tokyo Power Grid</span>
+      <span class="pill">Static + Iterative dismantling</span>
+    </div>
+    <p class="footnote">Methods per MDPI <i>Entropy</i> 26(3) 248 & 26(4) 315 · Conference draft, 2026</p>
+  </div>
+</section>
+
+<!-- 2 · PROBLEM -->
+<section class="slide">
+  <div class="slide-content reveal">
+    <div class="kicker">The Problem</div>
+    <h2>Not all links are equal.<br>Which ones hold the network together?</h2>
+    <div class="grid cols-3" style="margin-top:var(--content-gap)">
+      <div class="card"><h3 class="am">Infrastructure fails at the edges</h3><p>A handful of transmission lines, when lost, cascade into wide-area blackouts. Operators need to know <i>which</i> links carry the structural load.</p></div>
+      <div class="card"><h3 class="am">Node importance ≠ edge importance</h3><p>Decades of work rank critical <i>nodes</i>. The bridges, bottlenecks, and articulation links between them are under-served.</p></div>
+      <div class="card"><h3 class="am">Real grids are messy</h3><p>Benchmarks (Karate, Jazz) are toys. Authentic infrastructure has bridges, long line-segments, and irregular degree — and breaks differently.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 · APPROACH -->
+<section class="slide">
+  <div class="slide-content">
+    <div class="reveal" style="display:flex;flex-direction:column;gap:var(--content-gap)">
+      <div>
+        <div class="kicker">Core Method · Dismantling</div>
+        <h2>Rank edges → remove in order → watch the giant component collapse</h2>
+      </div>
+      <div class="grid cols-2" style="align-items:center">
+        <ul class="clean">
+          <li>Each metric scores every edge for <mark>structural criticality</mark>.</li>
+          <li>Edges are removed highest-rank-first ("dismantling").</li>
+          <li>Track the <span>Relative Giant Component (RGC)</span> after every cut.</li>
+          <li>The <mark>AUC of the RGC curve</mark> summarizes effectiveness.</li>
+          <li><b class="mg">Lower AUC = the metric finds critical links faster.</b></li>
+        </ul>
+        <div class="card">
+          <div class="tag">RGC vs. fraction removed</div>
+          <svg viewBox="0 0 300 170" style="width:100%;height:auto;margin-top:.5rem" aria-label="Dismantling curves">
+            <line x1="34" y1="140" x2="290" y2="140" stroke="#243044"/>
+            <line x1="34" y1="14" x2="34" y2="140" stroke="#243044"/>
+            <!-- weak metric: slow decay (high AUC) -->
+            <path d="M34,20 C120,40 200,90 290,135" fill="none" stroke="#5b6b82" stroke-width="2.5"/>
+            <!-- strong metric: sharp early collapse (low AUC) -->
+            <path d="M34,20 C70,90 110,128 290,135" fill="none" stroke="#34e0d4" stroke-width="3"/>
+            <text x="150" y="160" fill="#9aa7b8" font-family="JetBrains Mono,monospace" font-size="9">fraction of edges removed →</text>
+            <text x="120" y="55" fill="#34e0d4" font-family="JetBrains Mono,monospace" font-size="9">low AUC ✓</text>
+            <text x="205" y="78" fill="#5b6b82" font-family="JetBrains Mono,monospace" font-size="9">high AUC</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 · METRIC SUITE -->
+<section class="slide">
+  <div class="slide-content reveal">
+    <div class="kicker">The Toolkit · 9 Edge Metrics, 3 Families</div>
+    <h2>One standardized schema. Nine ways to rank an edge.</h2>
+    <div class="grid cols-3" style="margin-top:var(--content-gap)">
+      <div class="card">
+        <h3>Topological</h3>
+        <ul class="clean" style="margin-top:.4rem">
+          <li class="mono" style="font-size:var(--small-size)">LDC <span>— degree(u)·degree(v)</span></li>
+          <li class="mono" style="font-size:var(--small-size)">Jaccard <span>— neighbour overlap</span></li>
+          <li class="mono" style="font-size:var(--small-size)">LKS <span>— k-shell(u)·k-shell(v)</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 class="mg">Collective Influence ×4</h3>
+        <ul class="clean" style="margin-top:.4rem">
+          <li class="mono" style="font-size:var(--small-size)">skin / body <span>— ball shell vs volume, ℓ=3</span></li>
+          <li class="mono" style="font-size:var(--small-size)">av / mul <span>— edge from node scores</span></li>
+        </ul>
+        <p style="margin-top:.5rem;font-size:var(--small-size)">Resolves the ambiguous "∂Ball" definition by computing <i>both</i> readings.</p>
+      </div>
+      <div class="card">
+        <h3 class="am">Entropy / Local Betweenness</h3>
+        <ul class="clean" style="margin-top:.4rem">
+          <li class="mono" style="font-size:var(--small-size)">LLBCe <span>— local link betweenness</span></li>
+          <li class="mono" style="font-size:var(--small-size)">LLBMEe1 <span>— + mapping entropy</span></li>
+        </ul>
+        <p style="margin-top:.5rem;font-size:var(--small-size)">Subset betweenness on Γ(e)={u,v}∪N(u)∪N(v) — no subgraph cutting.</p>
+      </div>
+    </div>
+    <p class="footnote">Canonical DataFrame: columns <span class="mono">i, j, &lt;metric&gt;…</span> — every metric, every dataset, one schema.</p>
+  </div>
+</section>
+
+<!-- 5 · ITERATIVE -->
+<section class="slide">
+  <div class="slide-content reveal">
+    <div class="kicker">The Twist · Static vs. Iterative</div>
+    <h2>Recompute the ranking after <span class="mg">every</span> removal</h2>
+    <div class="grid cols-2" style="margin-top:var(--content-gap)">
+      <div class="card"><h3>Static</h3><p>Rank once on the intact network, then remove in that fixed order. Fast, but blind to how the topology changes mid-collapse.</p></div>
+      <div class="card"><h3 class="mg">Iterative</h3><p>After each cut, the surviving graph is re-scored and the next most-critical edge is chosen afresh — adaptive dismantling that tracks the shifting structure.</p></div>
+    </div>
+    <p class="lead" style="margin-top:var(--content-gap)">Because mid-dismantling metric <i>values</i> aren't comparable across steps, the iterative pipeline records each edge's <mark>1-based removal order</mark>, not its raw score.</p>
+  </div>
+</section>
+
+<!-- 6 · DATASET -->
+<section class="slide">
+  <div class="slide-content reveal">
+    <div class="kicker">Flagship Case Study</div>
+    <h2>The Tokyo / Eastern-Japan Power Grid</h2>
+    <div class="stat-row" style="margin:var(--content-gap) 0">
+      <div class="stat"><div class="num">156</div><div class="lbl">nodes (LCC)</div></div>
+      <div class="stat mg"><div class="num">190</div><div class="lbl">transmission edges</div></div>
+      <div class="stat am"><div class="num">50<span style="font-size:.5em">Hz</span></div><div class="lbl">every node (TEPCO/J-Power)</div></div>
+      <div class="stat"><div class="num">10/10</div><div class="lbl">substations verified real</div></div>
+    </div>
+    <div class="grid cols-2">
+      <ul class="clean">
+        <li>Extracted from <mark>OpenStreetMap</mark> high-voltage data (ComplexNetTSP Japan).</li>
+        <li>Bbox-filtered to the Kanto backbone — <span>no 60 Hz Chubu leakage</span>.</li>
+        <li>Top-degree hubs are confirmed 500/275 kV trunk substations.</li>
+      </ul>
+      <ul class="clean">
+        <li>56 bridges · 54 articulation points · diameter 23.</li>
+        <li>Every coordinate <mark>sourced, not generated</mark>.</li>
+        <li>Caveat: 57/156 nodes are OSM line-junction vertices.</li>
+      </ul>
+    </div>
+    <p class="footnote">Real infrastructure topology — far less forgiving than social benchmarks.</p>
+  </div>
+</section>
+
+<!-- 7 · HEADLINE RESULT (Tokyo bars) -->
+<section class="slide">
+  <div class="slide-content reveal">
+    <div class="kicker">Headline Result · Tokyo Grid · Iterative AUC</div>
+    <h2>Entropy of local betweenness wins on real infrastructure</h2>
+    <div class="bars" style="margin-top:var(--content-gap)" id="tokyoBars">
+      <!-- width % = AUC / 0.50 * 100 ; lower bar = better -->
+      <div class="bar-row best"><span class="name">LLBMEe1</span><div class="bar-track"><div class="bar-fill" style="--w:36.4%"></div></div><span class="val">0.182</span></div>
+      <div class="bar-row"><span class="name">CI_e_av_body</span><div class="bar-track"><div class="bar-fill" style="--w:36.9%"></div></div><span class="val">0.185</span></div>
+      <div class="bar-row"><span class="name">CI_e_mul_body</span><div class="bar-track"><div class="bar-fill" style="--w:37.9%"></div></div><span class="val">0.190</span></div>
+      <div class="bar-row"><span class="name">CI_e_av_skin</span><div class="bar-track"><div class="bar-fill" style="--w:39.2%"></div></div><span class="val">0.196</span></div>
+      <div class="bar-row"><span class="name">LDC</span><div class="bar-track"><div class="bar-fill" style="--w:45.0%"></div></div><span class="val">0.225</span></div>
+      <div class="bar-row"><span class="name">LLBCe</span><div class="bar-track"><div class="bar-fill" style="--w:61.0%"></div></div><span class="val">0.305</span></div>
+      <div class="bar-row"><span class="name">LKS</span><div class="bar-track"><div class="bar-fill" style="--w:84.0%"></div></div><span class="val">0.420</span></div>
+      <div class="bar-row"><span class="name">Jaccard</span><div class="bar-track"><div class="bar-fill" style="--w:89.8%"></div></div><span class="val">0.449</span></div>
+    </div>
+    <p class="footnote">AUC of RGC curve · lower = better · iterative dismantling · bar length ∝ AUC (axis 0–0.50)</p>
+  </div>
+</section>
+
+<!-- 8 · CROSS-DATASET -->
+<section class="slide">
+  <div class="slide-content reveal">
+    <div class="kicker">Generalization · 9 Networks</div>
+    <h2>Best metric per network <span style="color:var(--ink-dim);font-weight:400;font-size:.6em">(iterative AUC)</span></h2>
+    <table style="margin-top:var(--content-gap)">
+      <thead><tr><th>Network</th><th>Type</th><th>Best metric</th><th class="mono">AUC</th></tr></thead>
+      <tbody>
+        <tr><td>Tokyo grid</td><td>infrastructure</td><td class="win mono">LLBMEe1</td><td class="mono">0.182</td></tr>
+        <tr><td>Transport</td><td>infrastructure</td><td class="win mono">LLBMEe1</td><td class="mono">0.160</td></tr>
+        <tr><td>Football</td><td>social</td><td class="win mono">LLBCe</td><td class="mono">0.269</td></tr>
+        <tr><td>Lesmis</td><td>social</td><td class="win mono">LLBMEe1</td><td class="mono">0.291</td></tr>
+        <tr><td>Dolphins</td><td>social</td><td class="win mono">LLBCe</td><td class="mono">0.324</td></tr>
+        <tr><td>Hermaphrodite</td><td>biological</td><td class="win mono">Jaccard</td><td class="mono">0.383</td></tr>
+        <tr><td>Karate</td><td>social</td><td class="win mono">Jaccard</td><td class="mono">0.387</td></tr>
+        <tr><td>Jazz</td><td>collaboration</td><td class="win mono">Jaccard</td><td class="mono">0.405</td></tr>
+      </tbody>
+    </table>
+    <p class="footnote">Entropy/local-betweenness metrics lead on infrastructure & structured nets; Jaccard (bridge detection) leads on dense social graphs.</p>
+  </div>
+</section>
+
+<!-- 9 · FINDING: iterative helps -->
+<section class="slide">
+  <div class="slide-content reveal">
+    <div class="kicker">Finding 01</div>
+    <h2>Iterative recomputation systematically beats static</h2>
+    <p class="lead">Adaptive re-ranking lowers AUC across nearly every metric and dataset — most dramatically for global, structure-sensitive metrics.</p>
+    <div class="grid cols-3" style="margin-top:var(--content-gap)">
+      <div class="card"><div class="tag">Tokyo · CI_e_av_body</div><div class="stat-row" style="align-items:baseline;margin-top:.3rem"><div class="stat"><div class="num" style="font-size:clamp(1.3rem,3.6vw,2.4rem)">0.269</div><div class="lbl">static</div></div><div style="color:var(--cyan);font-size:1.4rem">→</div><div class="stat"><div class="num" style="font-size:clamp(1.3rem,3.6vw,2.4rem)">0.185</div><div class="lbl">iterative</div></div></div><p style="margin-top:.4rem;font-size:var(--small-size)">−31% AUC</p></div>
+      <div class="card"><div class="tag">Jazz · LLBMEe1</div><div class="stat-row" style="align-items:baseline;margin-top:.3rem"><div class="stat mg"><div class="num" style="font-size:clamp(1.3rem,3.6vw,2.4rem)">0.770</div><div class="lbl">static</div></div><div style="color:var(--magenta);font-size:1.4rem">→</div><div class="stat mg"><div class="num" style="font-size:clamp(1.3rem,3.6vw,2.4rem)">0.434</div><div class="lbl">iterative</div></div></div><p style="margin-top:.4rem;font-size:var(--small-size)">−44% AUC</p></div>
+      <div class="card"><div class="tag">Football · LLBCe</div><div class="stat-row" style="align-items:baseline;margin-top:.3rem"><div class="stat am"><div class="num" style="font-size:clamp(1.3rem,3.6vw,2.4rem)">0.462</div><div class="lbl">static</div></div><div style="color:var(--amber);font-size:1.4rem">→</div><div class="stat am"><div class="num" style="font-size:clamp(1.3rem,3.6vw,2.4rem)">0.269</div><div class="lbl">iterative</div></div></div><p style="margin-top:.4rem;font-size:var(--small-size)">−42% AUC</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 · FINDING: regime split -->
+<section class="slide">
+  <div class="slide-content reveal">
+    <div class="kicker">Finding 02</div>
+    <h2>The winning metric depends on the network's regime</h2>
+    <div class="grid cols-2" style="margin-top:var(--content-gap)">
+      <div class="card">
+        <h3 class="am">Infrastructure & sparse, structured graphs</h3>
+        <p><b class="am">LLBMEe1 / LLBCe dominate.</b> Local-betweenness entropy captures the bridges and bottlenecks that carry flow across a physically constrained topology.</p>
+      </div>
+      <div class="card">
+        <h3 class="mg">Dense social & collaboration graphs</h3>
+        <p><b class="mg">Jaccard leads.</b> Where communities overlap heavily, low neighbour-overlap pinpoints the inter-cluster bridges whose removal shatters connectivity.</p>
+      </div>
+    </div>
+    <p class="lead" style="margin-top:var(--content-gap)">There is <mark>no single universal metric</mark> — but entropy-based local betweenness is the most reliable choice for the infrastructure problem that motivated this work.</p>
+  </div>
+</section>
+
+<!-- 11 · CONTRIBUTIONS -->
+<section class="slide">
+  <div class="slide-content reveal">
+    <div class="kicker">Contributions</div>
+    <h2>What this work delivers</h2>
+    <div class="grid cols-2" style="margin-top:var(--content-gap)">
+      <ul class="clean">
+        <li><b>Unified, reproducible suite</b> <span>— 9 edge metrics, one schema, static + iterative, on any i,j edge list.</span></li>
+        <li><b>Corrected CI implementation</b> <span>— resolves the ambiguous ∂Ball definition via skin/body × av/mul.</span></li>
+        <li><b>Faithful LLBCe / LLBMEe1</b> <span>— subset betweenness on the true central domain, no subgraph cutting.</span></li>
+      </ul>
+      <ul class="clean">
+        <li><b>Authentic city-scale benchmark</b> <span>— a verified 50 Hz Tokyo grid, every coordinate sourced.</span></li>
+        <li><b>Static-vs-iterative evidence</b> <span>— adaptive re-ranking consistently improves dismantling.</span></li>
+        <li><b>Regime insight</b> <span>— entropy metrics for infrastructure, Jaccard for dense social nets.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 12 · CLOSE -->
+<section class="slide">
+  <svg class="netviz" id="netviz2" preserveAspectRatio="xMidYMid slice"></svg>
+  <div class="slide-content reveal">
+    <div class="kicker">Conclusion</div>
+    <h1 style="font-size:clamp(1.5rem,4.6vw,3.4rem)">Critical links are<br><span class="mg">findable, rankable, reproducible.</span></h1>
+    <p class="lead">A single entropy-aware framework, validated from toy benchmarks to a real metropolitan power grid — pointing operators at the edges that matter most.</p>
+    <div class="hero-tag" style="margin-top:var(--content-gap)">
+      <span class="pill on">LLBMEe1 → 0.182 AUC on Tokyo</span>
+      <span class="pill on">9 networks</span>
+      <span class="pill">Open, scriptable pipeline</span>
+    </div>
+    <p class="footnote">NetworkEntropy · 2026 · methods: MDPI Entropy 26(3) 248 & 26(4) 315 · Thank you — questions welcome.</p>
+  </div>
+</section>
+
+</main>
+
+<script>
+(() => {
+  "use strict";
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const dotsWrap = document.getElementById('dots');
+  const progress = document.getElementById('progress');
+  let current = 0;
+
+  // build nav dots
+  slides.forEach((_, i) => {
+    const b = document.createElement('button');
+    b.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+    b.addEventListener('click', () => go(i));
+    dotsWrap.appendChild(b);
+  });
+  const dots = Array.from(dotsWrap.children);
+
+  function setActive(i) {
+    current = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, k) => s.classList.toggle('active', k === current));
+    dots.forEach((d, k) => d.classList.toggle('on', k === current));
+    progress.style.width = ((current + 1) / slides.length * 100) + '%';
+  }
+  function go(i) {
+    setActive(i);
+    slides[current].scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // observe which slide is centered (drives reveal + dots when scrolling)
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting && e.intersectionRatio > 0.55) {
+        const idx = slides.indexOf(e.target);
+        if (idx !== -1) setActive(idx);
+      }
+    });
+  }, { threshold: [0.55] });
+  slides.forEach(s => io.observe(s));
+
+  // keyboard
+  window.addEventListener('keydown', (e) => {
+    if (['ArrowRight','ArrowDown','PageDown',' '].includes(e.key)) { e.preventDefault(); go(current + 1); }
+    else if (['ArrowLeft','ArrowUp','PageUp'].includes(e.key)) { e.preventDefault(); go(current - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
+  });
+
+  // wheel (debounced, one slide per gesture)
+  let wheelLock = false;
+  window.addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaY) < 24) return;
+    if (wheelLock) return;
+    wheelLock = true;
+    go(current + (e.deltaY > 0 ? 1 : -1));
+    setTimeout(() => wheelLock = false, 700);
+  }, { passive: true });
+
+  // touch
+  let ty = null;
+  window.addEventListener('touchstart', e => ty = e.touches[0].clientY, { passive: true });
+  window.addEventListener('touchend', e => {
+    if (ty === null) return;
+    const dy = ty - e.changedTouches[0].clientY;
+    if (Math.abs(dy) > 50) go(current + (dy > 0 ? 1 : -1));
+    ty = null;
+  }, { passive: true });
+
+  setActive(0);
+
+  // ---- decorative network motif (deterministic, no Math.random dependency) ----
+  function drawNet(svg, n, seed) {
+    if (!svg) return;
+    const W = 1000, H = 600;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    let s = seed;
+    const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+    const pts = Array.from({length:n}, () => ({ x: rnd()*W, y: rnd()*H }));
+    const NS = 'http://www.w3.org/2000/svg';
+    // edges: connect each node to 2 nearest
+    pts.forEach((p, i) => {
+      const d = pts.map((q, j) => ({ j, dist: (p.x-q.x)**2 + (p.y-q.y)**2 })).filter(o => o.j !== i).sort((a,b)=>a.dist-b.dist).slice(0,2);
+      d.forEach(o => {
+        const ln = document.createElementNS(NS,'line');
+        ln.setAttribute('x1',p.x); ln.setAttribute('y1',p.y);
+        ln.setAttribute('x2',pts[o.j].x); ln.setAttribute('y2',pts[o.j].y);
+        ln.setAttribute('stroke', 'rgba(52,224,212,0.18)'); ln.setAttribute('stroke-width','1');
+        svg.appendChild(ln);
+      });
+    });
+    pts.forEach((p, i) => {
+      const c = document.createElementNS(NS,'circle');
+      c.setAttribute('cx',p.x); c.setAttribute('cy',p.y);
+      const big = i % 7 === 0;
+      c.setAttribute('r', big ? 5 : 2.4);
+      c.setAttribute('fill', big ? '#34e0d4' : 'rgba(154,167,184,0.55)');
+      if (big) c.setAttribute('filter','url(#glow)');
+      svg.appendChild(c);
+    });
+  }
+  drawNet(document.getElementById('netviz'), 34, 7);
+  drawNet(document.getElementById('netviz2'), 28, 19);
+})();
+</script>
+</body>
+</html>

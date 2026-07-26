@@ -28,16 +28,24 @@ def main():
     
     os.makedirs("results_city", exist_ok=True)
     
+    # Iterative metric values are not comparable across removal steps, so the
+    # meaningful record is the REMOVAL ORDER per edge (1-based), written here.
     if args.method == 'ldc':
-        run_iterative_benchmark(G, "LDC", rank_ldc, "results_city/plot_iterative_ldc.png")
+        run_iterative_benchmark(G, "LDC", rank_ldc, "results_city/plot_iterative_ldc.png",
+                                order_csv_path="results_city/tokyo_iter_order_ldc.csv")
     elif args.method == 'jaccard':
-        run_iterative_benchmark(G, "Jaccard", rank_jaccard, "results_city/plot_iterative_jaccard.png", reverse=False)
+        run_iterative_benchmark(G, "Jaccard", rank_jaccard, "results_city/plot_iterative_jaccard.png",
+                                reverse=False, order_csv_path="results_city/tokyo_iter_order_jaccard.csv")
     elif args.method == 'lks':
-        run_iterative_benchmark(G, "LKS", rank_lks, "results_city/plot_iterative_lks.png")
+        run_iterative_benchmark(G, "LKS", rank_lks, "results_city/plot_iterative_lks.png",
+                                order_csv_path="results_city/tokyo_iter_order_lks.csv")
     elif args.method == 'ci':
-        run_iterative_benchmark(G, "Collective Influence", rank_ci, "results_city/plot_iterative_ci.png")
+        run_iterative_benchmark(G, "Collective Influence", rank_ci, "results_city/plot_iterative_ci.png",
+                                order_csv_path="results_city/tokyo_iter_order_ci.csv")
     elif args.method == 'llbc':
-        run_iterative_benchmark(G, "LLBCe and LLBMEe1", rank_llbc_me, "results_city/plot_iterative_llbc.png")
+        run_iterative_benchmark(G, "LLBCe and LLBMEe1", rank_llbc_me, "results_city/plot_iterative_llbc.png",
+                                reverse={"LLBCe": True, "LLBMEe1": False},
+                                order_csv_path="results_city/tokyo_iter_order_llbc.csv")
 
 if __name__ == "__main__":
     main()

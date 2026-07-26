@@ -23,6 +23,7 @@ python PowerGrid_City/download_and_filter_tokyo.py    # downloads + bbox-filters
 python PowerGrid_City/run_city_analysis.py            # computes static metrics → results_city/tokyo_grid_metrics.csv + plots
 python PowerGrid_City/run_iterative_analysis.py --method ldc      # iterative for one method
 python PowerGrid_City/validate_metrics.py             # writes results_city/validation_report.md
+python PowerGrid_City/run_resilience_analysis.py      # max-flow/min-cut/current-flow/spectral criticality → results_city/tokyo_resilience_*.{csv,md,png}
 
 # Per-method scripts inside dataset dirs
 python Football/CI/collective_influence.py            # static
@@ -33,9 +34,18 @@ python Football/CI/iterative_ci.py                    # iterative
 python aggregate_results.py
 python get_tokyo_aucs.py        # quick AUC table for Tokyo
 python print_aucs.py            # print AUC summary
+
+# Methodology benchmark: effectiveness (dismantling AUC) vs runtime, all methods, 4 networks
+python benchmark_criticality_methods.py                 # full run → results_comparison/
+python benchmark_criticality_methods.py --report-only   # rebuild report/plots from saved CSVs (no re-benchmark)
+
+# Tests (resilience/criticality only — the rest of the repo has none)
+.venv/Scripts/python.exe tests/test_resilience_utils.py                              # plain-script runner (no pytest needed)
+.venv/Scripts/python.exe -m pytest tests/test_resilience_utils.py                    # or via pytest
+.venv/Scripts/python.exe -m pytest tests/test_resilience_utils.py -k barbell         # a single test
 ```
 
-There is **no test suite, linter, or build step** — this is a research codebase. Verification is via the validation report and visual inspection of dismantling plots in `results_*/`.
+Most of the codebase has **no linter or build step**, and the classic dismantling metrics are verified only via `validate_metrics.py` and visual inspection of `results_*/` plots. The **exception is `src/utils/resilience_utils.py` + `prototype_criticality.py`**, which have a real test suite (`tests/test_resilience_utils.py`, ~18 tests) pinning every headline metric to a closed-form/ground-truth value; it runs with **or without pytest** (bottom `if __name__ == "__main__"` runner). Add a test whenever you touch that module.
 
 Python venv is at `.venv/` (Python 3.13, NetworkX, pandas, numpy, matplotlib, seaborn). Use `.venv/Scripts/python.exe` on Windows.
 
@@ -44,8 +54,15 @@ Python venv is at `.venv/` (Python 3.13, NetworkX, pandas, numpy, matplotlib, se
 ### Shared core: `src/utils/`
 - `network_utils.py` — `NetworkDismantler` class (static dismantling), `run_and_plot()` (driver), `create_metric_df()` (standardizes scores dict → DataFrame with `i, j, metric` columns).
 - `network_utils_iter.py` — `get_iterative_curve()` (recomputes ranks after each removal), `run_iterative_benchmark()`.
+- `resilience_utils.py` — **flow/spectral criticality** for infrastructure protection / N-1 contingency (complement to the topological dismantling metrics). Edge `rank_*` funcs return the same `i, j, <metric>` frame (drop-in for `run_and_plot`): `EBC`, `CFEdge` (current-flow betweenness — fast-exact O(N³+E·N log N) via `current_flow_edge_betweenness`, the sorted pairwise-difference identity), `MinCutCrit` (min-cut membership via max-flow), `BridgeImpact` (N-1), `EffRes` (effective resistance). Plus `node_resilience_table()` and `global_resilience_summary()` (edge/node connectivity, Stoer–Wagner global + 2-core backbone min-cut, algebraic connectivity, Fiedler). **Pure NumPy + NetworkX — no scipy** (current-flow/spectral come from the Laplacian pseudoinverse / `eigh`).
+- `prototype_criticality.py` (**branch `prototype` only**) — adaptive Kirchhoff Flow Criticality (`KFC`): fuses current-flow throughput with effective-resistance irreplaceability, exponent β auto-tuned by mean effective resistance; strict generalisation of `CFEdge` (β=0 recovers it). See `results_comparison/prototype_kfc_findings.md`.
 
 Every per-dataset, per-method script imports from `src/utils/` via a `sys.path.insert(...)` hack. Path resolution is **cwd-relative** in most scripts (`run_iterative_analysis.py` is the exception — uses `__file__`-based paths).
+
+### Resilience analysis & method benchmark
+- `PowerGrid_City/run_resilience_analysis.py` → `results_city/tokyo_resilience_*.{csv,md}` + `plot_resilience_all.png` (joins line/substation names read-only from `datasets/japan_*.csv`; never writes `tokyo_grid_metrics.csv`).
+- `benchmark_criticality_methods.py` → `results_comparison/` — compares every method on effectiveness (dismantling AUC) vs runtime across karate/tokyo/football/jazz. Finding: fast-exact `CFEdge` is the robust champion; the min-cut/subset-betweenness methods are ~10³–10⁴× slower for no gain.
+- KFC reference docs (write-ups, not code): `results_comparison/kfc_algorithm_dfd.md` + `kfc_dfd_level{0,1}.svg` (data-flow diagrams), `results_comparison/prototype_kfc_findings.md` (benchmark verdict — KFC's mean gain over CFEdge is ~0.1%, honest), `docs/kfc_paper.tex` (research paper, compiles with `pdflatex`), `docs/kfc_slides.html` (self-contained slide deck). Note the docs' Sherman–Morrison motivation uses `‖d‖²/(1−R_eff)` but the code's `KFC` uses the `cf1` throughput term — it is Kirchhoff-*inspired*, not the exact sensitivity.
 
 ### Dataset directory pattern
 ```
@@ -88,10 +105,11 @@ Data source: ComplexNetTSP/Power_grids Japan CSVs (raw OSM `power=*` extraction,
 Originally CRITICAL/HIGH findings from a code review; most are now resolved in-tree on `iterative-method`.
 
 1. **RESOLVED — Reproducibility for Tokyo CSV**: `PowerGrid_City/run_city_analysis.py:144–174` regenerates the CSV with the full extended schema; columns match `validate_metrics.py:15`.
-2. **RESOLVED — CI 4 variants**: `PowerGrid_City/run_city_analysis.py:35–71` now emits all 4 variants (`CI_e_av_skin, CI_e_mul_skin, CI_e_av_body, CI_e_mul_body`). Note: `Football/CI/collective_influence.py` and `aggregate_results.py` may still drop variants — out of scope for this session, tracked separately.
+2. **RESOLVED — CI 4 variants**: `PowerGrid_City/run_city_analysis.py:35–71` emits all 4 variants (`CI_e_av_skin, CI_e_mul_skin, CI_e_av_body, CI_e_mul_body`). Verified 2026-05-29: `Football/CI/collective_influence.py:37–43` and `aggregate_results.py:135–146` also emit all 4 variants now. Fully resolved.
 3. **RESOLVED — LLBCe normalization**: `PowerGrid_City/run_city_analysis.py:101–102` now divides by `|fc|·(|fc|−1)`, making values comparable across edges.
 4. **RESOLVED — Iterative truncation**: `src/utils/network_utils_iter.py:28–39` now warns and pads the RGC curve to full dismantled length instead of silently truncating on empty DataFrame.
-5. **OPEN — `CKS` vs `LKS` naming inconsistency** (MEDIUM): `rank_cks` in `Karate/CKS/CKS_Link_K_Shell.py:16`, `Jazz/CKS/CKS_Link_K_Shell.py:16`, and `Football/CKS/CKS_Link_K_Shell.py:16` still emits the column `CKS`; CSV/validator expect `LKS`. Not yet addressed (per-dataset benchmark scripts were out of scope for the Tokyo-focused session).
+5. **RESOLVED — `CKS` vs `LKS` naming inconsistency**: verified 2026-05-29 that `Karate/CKS/CKS_Link_K_Shell.py`, `Jazz/CKS/CKS_Link_K_Shell.py`, and `Football/CKS/CKS_Link_K_Shell.py` all define `rank_lks` emitting the `LKS` column. (Plot filenames are still `result_cks.png` — cosmetic only.)
+6. **RESOLVED — validator rejected negative LLBMEe1**: `PowerGrid_City/validate_metrics.py:40` previously asserted `LLBMEe1 ≥ 0`, but LLBMEe1 is inverted-criticality (≤ 0, smallest = most critical). Fixed 2026-05-29 — LLBMEe1 removed from the non-negative set and given a dedicated `≤ 0` check that reports any sign-flip edges as info.
 
 ## Current Investigation State (resume point)
 
@@ -114,11 +132,27 @@ Also resolved: `src/utils/network_utils_iter.py:28–39` empty-DF guard (warn + 
 
 Out of scope (deferred): renaming `CKS→LKS` in `{Karate,Jazz,Football}/CKS/CKS_Link_K_Shell.py` (Issue #5), and the CI 4-variant emission in `Football/CI/collective_influence.py` and `aggregate_results.py` (Issue #2 partial).
 
+**Completed (2026-05-29)** — conference results refresh:
+
+- **Validator fix (Issue #6)**: `PowerGrid_City/validate_metrics.py` no longer rejects negative `LLBMEe1`; it checks `LLBMEe1 ≤ 0` and reports sign-flip edges as info.
+- **Iterative records ORDER, not value**: `network_utils_iter.run_iterative_benchmark` already supports `order_csv_path`; wired it into `PowerGrid_City/run_iterative_analysis.py` (→ `results_city/tokyo_iter_order_<method>.csv`). For static, value CSVs remain correct (sortable). For iterative, metric values are not comparable across recompute steps, so the 1-based removal order per edge is the record.
+- **Unified multi-network suite**: `run_network_suite.py` runs the full 9-metric static + iterative dismantling on any `i,j` edge-list CSV (LCC + self-loop removal), writing `results_<name>/`: `<name>_metrics.csv` (static values), `<name>_iter_order.csv` (removal order), `<name>_iter_<metric>_rgc.csv`, plots, and `aucs_<name>.csv`. Ran the 7 conference networks from `Networks to check/` (karate, dolphins, lesmis, football, baseball, transport, hermaphrodite) plus Jazz and Tokyo (via derived `_derived_*.csv` edge lists).
+- **Dashboard + comparison**: `build_dashboard_and_comparison.py` rebuilds `dashboard_app/dashboard_data.{js,json}` from suite outputs with the **canonical** schema (replacing the stale `CKS`/single-`CI`/`LLBC`/`LLBME` keys), makes the dashboard dataset dropdown dynamic, and writes `static_vs_iterative_comparison.xlsx` + `results_comparison/` figures (static-vs-iterative AUC scatter + per-metric bars).
+- **LLBMEe sign caveat**: `LLBMEe1 = -LLBCe_raw·Σ log(LLBCe_raw)` is only uniformly negative if every neighbor raw subset-betweenness ≥ 1; with `normalized=False`, sub-1 values flip the log sign and a few edges can go positive. The validator now surfaces this rather than failing. If many positives appear, revisit raw-vs-normalized semantics with the user.
+
+**Completed (2026-07-14)** — resilience / critical-component analysis (defensive framing):
+
+- **New module `src/utils/resilience_utils.py`**: flow/spectral criticality complement to the topological dismantling suite, for identifying components to **protect / harden** (N-1 / N-k contingency). Network-agnostic, pure NumPy + NetworkX (**no scipy** — current-flow and Fiedler metrics are computed directly from the Laplacian pseudoinverse / `eigh`). Edge `rank_*` fns (`EBC`, `CFEdge` current-flow, `MinCutCrit` min-cut membership via max-flow, `BridgeImpact` N-1 single-failure) return the standard `i,j,<metric>` frame and are drop-in for `run_and_plot`. Also `node_resilience_table` and `global_resilience_summary` (edge/node connectivity, Stoer–Wagner global + 2-core backbone min-cut, algebraic connectivity, Fiedler bisection).
+- **Driver `PowerGrid_City/run_resilience_analysis.py`**: writes NEW files only (`tokyo_resilience_metrics.csv`, `tokyo_node_resilience.csv`, `tokyo_resilience_report.md`, `plot_resilience_all.png`); joins line/substation names read-only from `japan_*.csv`. Never touches `tokyo_grid_metrics.csv`.
+- **Key semantics**: the user's "min-cut/max-flow to find critical points" is served by min-cut *membership* (bottleneck edges), NOT flow *load* (which peaks at hub-incident edges). Raw global min-cut = 1 is a pendant-stub artifact; the report leads with the **2-core backbone** cut + bridge/N-1 rankings. Tokyo top findings: load corridors = Tadami/Shin-Koga 500 kV trunks; top bottleneck = Shin-Niigata 500 kV; critical substations = Shin-Koga/Shin-Tokorozawa/Shin-Tama (match prior coordinate audit).
+- **Tests `tests/test_resilience_utils.py`** (14, all pass; runs with or without pytest): every headline metric pinned to a closed-form/ground-truth value (barbell, cycle, path, tree), plus sampling-branch determinism, dirty/disconnected-graph handling, and a `run_and_plot` integration smoke test. Hardened after an adversarial verification workflow found the numerics correct but under-asserted.
+
 **User constraints**:
 - Do NOT modify data files (`japan_*.csv`, `tokyo_grid.gml`, `tokyo_grid_metrics.csv`). Code only.
+- Grid work is framed as **resilience / infrastructure protection** (find critical components to harden / N-1 plan), not attack targeting.
 - Use parallel agents (claude-flow / Agent tool with multiple parallel calls) to divide tasks.
 - No generative/guess work for geographic data — every coordinate must be sourced.
 
 **Cleanup pending**: ~~temp files in repo root (`_check_out.txt`, `_neigh.txt`, `_ops.txt`, `_picks.txt`, `_topdeg.txt`)~~ — DELETED 2026-04-27 (Track C).
 
-When resuming: re-read `report.md`, `new_instructions.md`, `PowerGrid_City/README.md`, then this section. The "Completed (2026-04-27)" subsection above is the resume point; remaining work is the per-dataset CKS/CI rename (Issue #5 and the deferred portion of Issue #2).
+When resuming: re-read `report.md`, `new_instructions.md`, `PowerGrid_City/README.md`, then this section. The "Completed (2026-07-14)" resilience subsection above is the latest resume point (run `python PowerGrid_City/run_resilience_analysis.py`; tests via `.venv/Scripts/python.exe tests/test_resilience_utils.py`). Older remaining work is the per-dataset CKS/CI rename (Issue #5 and the deferred portion of Issue #2).

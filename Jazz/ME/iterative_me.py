@@ -19,4 +19,4 @@ if __name__ == "__main__":
     G = nx.read_edgelist(dataset_path, comments='%')
     G = nx.convert_node_labels_to_integers(G, label_attribute='old_label')
     out_name = "results/result_me_iter.png"
-    run_iterative_benchmark(G, "Improved Mapping Entropy", rank_me_improved, out_name)
+    run_iterative_benchmark(G, "Improved Mapping Entropy", rank_me_improved, out_name, reverse=False)

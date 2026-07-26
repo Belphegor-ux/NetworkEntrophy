@@ -78,8 +78,15 @@ def rank_llbc_me(G: nx.Graph) -> pd.DataFrame:
     first-order central domain fc = {u,v} ∪ N(u) ∪ N(v) as both sources
     and targets, then normalizes by |fc| * (|fc| - 1) per Eq. 8.
 
-    LLBMEe1(e1) = -sum_p p log p over LLBCe values of edges incident to
-    the endpoints of e1 (Eq. 11), recomputed on the normalized values.
+    LLBMEe1(e1) is a mapping entropy on the RAW (un-normalized) LLBCe
+    betweenness values:
+
+        LLBMEe1(e1) = -LLBCe_raw(e1) * sum_{e2 in N(e1)} log(LLBCe_raw(e2))
+
+    where N(e1) is the set of edges incident to the endpoints of e1
+    EXCLUDING e1 itself, log uses np.log(max(val, 1e-10)), and the
+    score is 0 when LLBCe_raw(e1) <= 0. This yields NEGATIVE values:
+    the smallest is the most critical edge.
     """
     edges = [tuple(sorted(e)) for e in G.edges()]
     node_to_neighbors = {n: set(G.neighbors(n)) for n in G.nodes()}
@@ -98,31 +105,33 @@ def rank_llbc_me(G: nx.Graph) -> pd.DataFrame:
         raw = ebc_subset.get((u, v), ebc_subset.get((v, u), 0))
         denom = len(fc_nodes) * (len(fc_nodes) - 1)
         normalized = raw / denom if denom > 0 else 0.0
-        return e, normalized
+        return e, raw, normalized
 
-    llbc_e = dict(get_score(e) for e in edges)
+    llbc_raw: dict = {}
+    llbc_e: dict = {}
+    for e in edges:
+        _, raw, normalized = get_score(e)
+        llbc_raw[e] = raw
+        llbc_e[e] = normalized
 
+    # LLBMEe1: mapping entropy on RAW betweenness (reference formula).
     llbme_e1: dict = {}
     for u, v in edges:
         e1 = (u, v)
-        neighbors_u = G.edges(u)
-        neighbors_v = G.edges(v)
-        gamma_e1_edges = set()
-        for e in list(neighbors_u) + list(neighbors_v):
-            gamma_e1_edges.add(tuple(sorted(e)))
+        neigh_edges = []
+        for n in G.neighbors(u):
+            if n != v:
+                neigh_edges.append((min(u, n), max(u, n)))
+        for n in G.neighbors(v):
+            if n != u:
+                neigh_edges.append((min(v, n), max(v, n)))
 
-        local_llbc_vals = [llbc_e.get(e, 0) for e in gamma_e1_edges]
-        sum_llbc = sum(local_llbc_vals)
-
-        if sum_llbc == 0:
-            llbme_e1[e1] = 0
-        else:
-            entropy = 0.0
-            for val in local_llbc_vals:
-                if val > 0:
-                    p = val / sum_llbc
-                    entropy -= p * np.log(p)
-            llbme_e1[e1] = entropy
+        sum_log = sum(
+            np.log(max(llbc_raw.get(e2, 1e-10), 1e-10))
+            for e2 in neigh_edges
+        )
+        val = llbc_raw.get(e1, 0)
+        llbme_e1[e1] = (-val * sum_log) if val > 0 else 0
 
     data = []
     for u, v in edges:
@@ -176,7 +185,7 @@ def main() -> None:
     run_and_plot(G, "Jaccard", rank_jaccard, os.path.join(RESULTS_DIR, "plot_jaccard.png"), reverse=False)
     run_and_plot(G, "LKS", rank_lks, os.path.join(RESULTS_DIR, "plot_lks.png"))
     run_and_plot(G, "Collective Influence", rank_ci, os.path.join(RESULTS_DIR, "plot_ci.png"))
-    run_and_plot(G, "LLBCe and LLBMEe1", rank_llbc_me, os.path.join(RESULTS_DIR, "plot_llbc.png"))
+    run_and_plot(G, "LLBCe and LLBMEe1", rank_llbc_me, os.path.join(RESULTS_DIR, "plot_llbc.png"), reverse={"LLBCe": True, "LLBMEe1": False})
 
     print("All analyses completed. Check 'results_city' directory.")
 

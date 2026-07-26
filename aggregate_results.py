@@ -88,23 +88,21 @@ def rank_llbc_me(G):
     
     llbc_e = dict(results)
 
+    # LLBMEe1 = mapping entropy on RAW edge betweenness (llbc_e is normalized=False):
+    #   LLBME(e1) = -LLBCe_raw(e1) * sum_{e2 in neighbor edges of e1} log(LLBCe_raw(e2))
+    # neighbor edges = edges incident to u or v, EXCLUDING e1 itself.
+    # Yields negative values; smallest = most critical -> dismantle smallest-first.
     llbme_e1 = {}
     for u, v in edges:
         e1 = (u, v)
-        neighbors_u = G.edges(u)
-        neighbors_v = G.edges(v)
         gamma_e1_edges = set()
-        for e in list(neighbors_u) + list(neighbors_v):
+        for e in list(G.edges(u)) + list(G.edges(v)):
             gamma_e1_edges.add(tuple(sorted(e)))
-        
-        local_llbc_vals = [llbc_e.get(e, 0) for e in gamma_e1_edges]
-        sum_llbc = sum(local_llbc_vals)
-        
-        if sum_llbc == 0:
-            llbme_e1[e1] = 0
-        else:
-            entropy = sum(- (val/sum_llbc) * np.log(val/sum_llbc) for val in local_llbc_vals if val > 0)
-            llbme_e1[e1] = entropy
+        gamma_e1_edges.discard(e1)  # exclude self-edge
+
+        val = llbc_e.get(e1, 0)
+        sum_log = sum(np.log(max(llbc_e.get(e2, 0), 1e-10)) for e2 in gamma_e1_edges)
+        llbme_e1[e1] = -val * sum_log if val > 0 else 0
     
     data = []
     for u, v in edges:
@@ -245,7 +243,7 @@ def main():
         # DEPRECATED per new_instructions.md §3 — not registered for runs
         # ("IE", rank_ie, True),
         ("LLBC", rank_llbc, True),
-        ("LLBME", rank_llbme, True),
+        ("LLBME", rank_llbme, False),
         ("CI", rank_ci, True)
     ]
     
