@@ -81,3 +81,21 @@ only when the graph is clearly dense.
 **Recommendation:** adopt fast-exact `CFEdge` as the production method; keep `KFC` as an
 optional drop-in for dense networks. A larger, more diverse network sample would be
 needed to establish whether adaptive amplification pays off more decisively.
+
+---
+
+## Addendum (2026-07-26) — verdict superseded by KFC_v2
+
+The recommendation above predates `rank_kfc_v2` (`src/utils/prototype_criticality_v2.py`).
+Diagnosis (`kfc_v2_diagnosis.md`) showed v1's effective-resistance amplifier was the wrong
+irreplaceability signal: bridges saturate it (R_eff = 1) and dense graphs give it no spread,
+so auto-β collapsed to 0 on 5/6 networks — v1 was numerically ≈ CFEdge, and "CFEdge is
+champion" was really "v1 never engaged".
+
+KFC_v2 replaces the resistance term with a parameter-free community-bridging tier
+(Louvain inter-community edges first, current-flow order within tiers;
+`community_weight=0` recovers CFEdge exactly). On the six-network benchmark
+(`kfc_benchmark_report.md`) it ranks **#1 on every network** — mean dismantling AUC
+0.3268 vs CFEdge 0.3996 — at CFEdge-level runtime. **KFC_v2 is the new recommended
+default**, with caveats documented in the benchmark report §(d): pinned Louvain seed,
+reduced margin on weak-community graphs, ranking-only (not physical-current) semantics.

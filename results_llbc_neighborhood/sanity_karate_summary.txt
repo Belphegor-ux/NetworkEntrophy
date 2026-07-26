@@ -1,0 +1,3 @@
+k_full=5
+spearman=0.99986084
+ratio_cv=1.556e-16

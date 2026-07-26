@@ -1,0 +1,17 @@
+network,metric,k_pair,spearman
+karate,LLBCe,1v2,0.1106
+karate,LLBMEe1,1v2,0.9611
+karate,LLBCe,1v3,0.0555
+karate,LLBMEe1,1v3,0.9511
+dolphins,LLBCe,1v2,0.798
+dolphins,LLBMEe1,1v2,0.9187
+dolphins,LLBCe,1v3,0.6476
+dolphins,LLBMEe1,1v3,0.826
+football,LLBCe,1v2,0.8006
+football,LLBMEe1,1v2,0.9531
+football,LLBCe,1v3,0.917
+football,LLBMEe1,1v3,0.946
+jazz,LLBCe,1v2,0.6409
+jazz,LLBMEe1,1v2,0.9691
+jazz,LLBCe,1v3,0.5456
+jazz,LLBMEe1,1v3,0.9613

@@ -41,6 +41,8 @@ sys.path.insert(0, os.path.join(_ROOT, "PowerGrid_City"))
 import resilience_utils as ru  # noqa: E402
 import run_city_analysis as rca  # noqa: E402
 import prototype_criticality as pc  # noqa: E402
+import prototype_criticality_fast as pcf  # noqa: E402  (prototype branch only)
+import prototype_criticality_v2 as pcv2  # noqa: E402  (prototype branch only)
 from network_utils import NetworkDismantler  # noqa: E402
 
 RESULTS_DIR = os.path.join(_ROOT, "results_comparison")
@@ -57,6 +59,8 @@ METHODS = [
     ("CFEdge",       ru.rank_current_flow_edge,    True,                            "O(N^3 + E*N log N) pinv+sorted-id"),
     ("EffRes",       ru.rank_effective_resistance, True,                            "O(N^3 + E) pinv+per-edge [NEW]"),
     ("KFC",          pc.rank_kfc,                  True,                            "O(N^3 + E*N) adaptive fusion [NEW]"),
+    ("KFC_fast",     pcf.rank_kfc_fast,            True,                            "O(N^3 + E*R log R) cluster-approx KFC [NEW]"),
+    ("KFC_v2",       pcv2.rank_kfc_v2,             True,                            "O(N^3 + E*N log N) community-tiered CF [NEW]"),
     ("MinCutCrit",   lambda G: ru.rank_maxflow_criticality(G, max_pairs=MINCUT_SAMPLE), True, "O(pairs*maxflow) all-pairs cut"),
     ("BridgeImpact", ru.rank_bridge_impact,        True,                            "O(E*(N+E)) N-1 recompute"),
 ]
