@@ -80,6 +80,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import kfc_linalg  # noqa: E402
 from prototype_criticality import _DENOM_FLOOR, adaptive_beta  # noqa: E402
 from resilience_utils import (  # noqa: E402
     _canon,
@@ -230,7 +231,7 @@ def _grounded_inverse(H: nx.Graph, nodes: list) -> np.ndarray:
     L = np.diag(A.sum(axis=1)) - A
     n = len(nodes)
     M = np.zeros((n, n))
-    M[: n - 1, : n - 1] = np.linalg.inv(L[: n - 1, : n - 1])
+    M[: n - 1, : n - 1] = kfc_linalg.inv(L[: n - 1, : n - 1])
     return M
 
 

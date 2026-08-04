@@ -84,6 +84,8 @@ __all__ = ["kfc_v2_scores", "rank_kfc_v2", "kfc_v2_fast_scores", "rank_kfc_v2_fa
 _DEFAULT_SEED = 42
 _DEFAULT_REP_FRACTION = 0.5
 _DEFAULT_MIN_CENTERS = 8
+# ~1 GB of float64 for the E x R working block in kfc_v2_fast_scores.
+_CHUNK_BUDGET_FLOATS = 130_000_000
 
 
 def kfc_v2_scores(
@@ -237,8 +239,15 @@ def kfc_v2_fast_scores(
 
     r_idx = np.array([idx[v] for v, _ in reps])
     w = np.array([wt for _, wt in reps])
-    D = M[np.ix_(U, r_idx)] - M[np.ix_(V, r_idx)]
-    cf = _weighted_pairwise_absdiff(D, w)
+    # Edge-axis chunking: D is E x R float64 and its pairwise reduction makes
+    # several same-shaped temporaries, so cap the working set (~1 GB budget).
+    # Rows are independent — chunked results are identical to the one-shot.
+    chunk = max(1, int(_CHUNK_BUDGET_FLOATS / max(1, len(r_idx))))
+    cf = np.empty(len(edges))
+    for s in range(0, len(edges), chunk):
+        sl = slice(s, min(s + chunk, len(edges)))
+        D = M[np.ix_(U[sl], r_idx)] - M[np.ix_(V[sl], r_idx)]
+        cf[sl] = _weighted_pairwise_absdiff(D, w)
 
     if community_weight is not None and float(community_weight) == 0.0:
         return {e: float(cf[k]) for k, e in enumerate(edges)}, info

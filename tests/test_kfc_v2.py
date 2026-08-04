@@ -258,6 +258,20 @@ def test_v2_fast_determinism_schema_dirty():
     assert empty == {} and info0["n_communities"] == 0
 
 
+def test_v2_fast_edge_chunking_identical():
+    # Force many tiny chunks; results must be bitwise-equal to one-shot.
+    G = nx.karate_club_graph()
+    one_shot = pcv2.rank_kfc_v2_fast(G).sort_values(["i", "j"])
+    saved = pcv2._CHUNK_BUDGET_FLOATS
+    try:
+        pcv2._CHUNK_BUDGET_FLOATS = 64          # ~4 edges per chunk
+        chunked = pcv2.rank_kfc_v2_fast(G).sort_values(["i", "j"])
+    finally:
+        pcv2._CHUNK_BUDGET_FLOATS = saved
+    assert np.array_equal(one_shot["KFC_v2_fast"].values,
+                          chunked["KFC_v2_fast"].values)
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failures = 0
