@@ -1,0 +1,3 @@
+network,metric,mode,auc,runtime_s,n_points,n_nodes,n_edges
+baseball,KFC_v2,static,0.7830576088231843,0.0485916999168694,948,45,947
+baseball,KFC_v2,iterative,0.6665493370878798,17.318055900046602,948,45,947

@@ -1,0 +1,3 @@
+network,metric,mode,auc,runtime_s,n_points,n_nodes,n_edges
+email,KFC_v2,static,0.37706612858228394,3.860908000031486,5452,1133,5451
+email,KFC_v2,iterative,0.24541809781535992,1228.2325165999355,5452,1133,5451

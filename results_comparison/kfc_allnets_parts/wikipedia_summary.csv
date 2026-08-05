@@ -1,0 +1,3 @@
+network,metric,mode,auc,runtime_s,n_points,n_nodes,n_edges
+wikipedia,KFC_v2,static,0.26911527152369813,5.255795500008389,6518,677,6517
+wikipedia,KFC_v2,iterative,0.16831946625675515,3437.297392699984,6518,677,6517

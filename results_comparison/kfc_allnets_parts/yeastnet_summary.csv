@@ -1,0 +1,2 @@
+network,metric,mode,auc,runtime_s,n_points,n_nodes,n_edges
+yeastnet,KFC_v2,static,0.5328472204121952,8307.449587499956,362422,5808,362421

@@ -1,0 +1,3 @@
+network,metric,mode,auc,runtime_s,n_points,n_nodes,n_edges
+lesmis,KFC_v2,static,0.3047346354432968,0.02511030004825443,255,77,254
+lesmis,KFC_v2,iterative,0.22287554964720319,1.1544392999494448,255,77,254

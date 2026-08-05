@@ -1,0 +1,2 @@
+network,metric,mode,auc,runtime_s,n_points,n_nodes,n_edges
+internet,KFC_v2,static,0.2981627706327486,1145.878404499963,48437,22963,48436

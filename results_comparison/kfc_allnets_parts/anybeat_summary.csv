@@ -1,0 +1,2 @@
+network,metric,mode,auc,runtime_s,n_points,n_nodes,n_edges
+anybeat,KFC_v2,static,0.4315341758792664,496.57429000001866,49133,12645,49132

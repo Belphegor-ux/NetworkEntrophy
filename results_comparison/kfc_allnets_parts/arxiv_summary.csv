@@ -1,0 +1,2 @@
+network,metric,mode,auc,runtime_s,n_points,n_nodes,n_edges
+arxiv,KFC_v2,static,0.13261310143039245,164.29767430003267,27417,8798,27416
